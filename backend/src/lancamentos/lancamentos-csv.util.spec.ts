@@ -10,7 +10,8 @@ function criarLancamento(parcial: Partial<LancamentoApresentavel> = {}): Lancame
     observacoes: null,
     tecnico: { id: 'tecnico-1', nome: 'Ana Técnica' },
     paciente: { id: 'paciente-1', nome: 'João Paciente' },
-    exame: { id: 'exame-1', nome: 'Hemograma completo', codigo: 'HEMO-001' },
+    exame: { id: 'exame-1', nome: 'Hemograma completo', codigo: 'HEMO-001', especialidade: null },
+    convenio: null,
     criadoEm: new Date('2026-01-15T10:00:00.000Z'),
     atualizadoEm: new Date('2026-01-15T10:00:00.000Z'),
     ...parcial,
@@ -43,7 +44,7 @@ describe('lancamentosParaCsv', () => {
         observacoes: "=cmd|'/c calc'!A1",
         paciente: { id: 'paciente-2', nome: '+SOMA(A1:A2)' },
         tecnico: { id: 'tecnico-2', nome: '-1+1' },
-        exame: { id: 'exame-2', nome: '@SUM(1+1)', codigo: 'X' },
+        exame: { id: 'exame-2', nome: '@SUM(1+1)', codigo: 'X', especialidade: null },
       }),
     ]);
     const linhaDados = csv.split('\r\n')[1];

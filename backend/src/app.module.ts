@@ -2,10 +2,11 @@ import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
 import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
-import { APP_GUARD } from '@nestjs/core';
+import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 import { randomUUID } from 'crypto';
-import type { IncomingMessage } from 'http';
+import type { IncomingMessage, ServerResponse } from 'http';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 import { envValidationSchema } from './config/env.validation';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { CryptoModule } from './common/crypto/crypto.module';
@@ -25,15 +26,26 @@ import { ConfiguracoesModule } from './configuracoes/configuracoes.module';
 import { HealthModule } from './health/health.module';
 
 const CAMPOS_SENSIVEIS_PARA_REDACAO = [
+  // Cabeçalhos de autenticação/sessão
   'req.headers.authorization',
   'req.headers.cookie',
+  'res.headers["set-cookie"]',
+  // Senhas e credenciais em corpo de requisição
   'req.body.senha',
   'req.body.senhaAtual',
   'req.body.novaSenha',
+  'req.body.confirmarSenha',
+  'req.body.senhaInicial',
+  // Tokens de sessão e recuperação
   'req.body.refreshToken',
+  'req.body.token',
+  'req.body.turnstileToken',
+  // Dados pessoais sensíveis (PII — LGPD)
   'req.body.documento',
   'req.body.contato',
-  'res.headers["set-cookie"]',
+  // Campos internos que nunca devem vazar nos logs
+  'req.body.senhaHash',
+  'req.body.tokenHash',
 ];
 
 @Module({
@@ -54,6 +66,12 @@ const CAMPOS_SENSIVEIS_PARA_REDACAO = [
           level: config.get<string>('LOG_LEVEL') ?? 'info',
           genReqId: (req: IncomingMessage) => (req.id ? String(req.id) : randomUUID()),
           redact: { paths: CAMPOS_SENSIVEIS_PARA_REDACAO, censor: '[REDACTED]' },
+          // Adiciona userId ao log de cada requisição HTTP. O hook é chamado
+          // após a resposta ser enviada — nesse momento req.user já foi
+          // populado pelos guards de autenticação.
+          customProps: (req: IncomingMessage, _res: ServerResponse) => ({
+            userId: (req as IncomingMessage & { user?: { id?: string } }).user?.id ?? null,
+          }),
           transport:
             config.get<string>('NODE_ENV') !== 'production'
               ? { target: 'pino-pretty', options: { singleLine: true } }
@@ -94,6 +112,12 @@ const CAMPOS_SENSIVEIS_PARA_REDACAO = [
     ConfiguracoesModule,
     HealthModule,
   ],
-  providers: [{ provide: APP_GUARD, useClass: ThrottlerGuard }],
+  providers: [
+    // Filter global: captura todas as exceções não tratadas e loga com
+    // contexto estruturado (reqId, userId, path, statusCode, stack).
+    // Registrado antes dos guards para garantir cobertura total.
+    { provide: APP_FILTER, useClass: AllExceptionsFilter },
+    { provide: APP_GUARD, useClass: ThrottlerGuard },
+  ],
 })
 export class AppModule {}

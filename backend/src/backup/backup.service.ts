@@ -86,7 +86,7 @@ export class BackupService {
       ]);
     } catch (error) {
       await this.removerSeExistir(caminhoTemp);
-      this.logger.error(`Falha ao gerar backup: ${(error as Error).message}`);
+      this.logger.error({ err: error as Error }, 'Falha ao gerar backup do banco de dados');
       throw new InternalServerErrorException('Não foi possível gerar o backup do banco de dados.');
     }
 
@@ -193,7 +193,7 @@ export class BackupService {
         caminhoParaRestaurar,
       ]);
     } catch (error) {
-      this.logger.error(`Falha ao restaurar backup "${nomeOriginal}": ${(error as Error).message}`);
+      this.logger.error({ err: error as Error, nomeOriginal }, 'Falha ao restaurar backup do banco de dados');
       throw new InternalServerErrorException(
         'Não foi possível restaurar o backup. Verifique se o arquivo enviado é um backup válido (.dump ou .dump.enc) gerado por este sistema.',
       );
@@ -221,7 +221,7 @@ export class BackupService {
       const arquivo = await this.criar(SEM_CONTEXTO);
       this.logger.log(`Backup automático concluído: ${arquivo.nome}`);
     } catch (error) {
-      this.logger.error(`Backup automático falhou: ${(error as Error).message}`);
+      this.logger.error({ err: error as Error }, 'Backup automático (cron) falhou');
       return;
     }
 

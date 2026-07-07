@@ -57,7 +57,7 @@ describe('ExamesService', () => {
       prisma.exame.findUnique.mockResolvedValue(criarExamePrisma());
 
       await expect(
-        service.criar({ nome: 'Outro', codigo: 'HEMO-001', valorPadrao: '10.00' }, ctx),
+        service.criar({ nome: 'Outro', codigo: 'HEMO-001', valorPadrao: '10.00', especialidadeId: 'esp-1' }, ctx),
       ).rejects.toThrow(ConflictException);
       expect(prisma.exame.create).not.toHaveBeenCalled();
     });
@@ -66,7 +66,7 @@ describe('ExamesService', () => {
       prisma.exame.findUnique.mockResolvedValue(null);
       prisma.exame.create.mockResolvedValue(criarExamePrisma());
 
-      await service.criar({ nome: 'Hemograma completo', codigo: 'HEMO-001', valorPadrao: '150.00' }, ctx);
+      await service.criar({ nome: 'Hemograma completo', codigo: 'HEMO-001', valorPadrao: '150.00', especialidadeId: 'esp-1' }, ctx);
 
       const dadosNovos = audit.registrar.mock.calls[0][0].dadosNovos;
       expect(dadosNovos.valorPadrao).toBe('150');

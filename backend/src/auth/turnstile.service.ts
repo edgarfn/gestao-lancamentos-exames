@@ -44,7 +44,7 @@ export class TurnstileService {
       // Fail-closed: indisponibilidade da Cloudflare ou erro de rede é tratada
       // como verificação inválida — preferível bloquear um login legítimo
       // ocasional a desativar silenciosamente uma proteção contra bots.
-      this.logger.error(`Falha ao validar token Turnstile: ${(erro as Error).message}`);
+      this.logger.error({ err: erro as Error }, 'Falha ao validar token Turnstile');
       return false;
     }
   }

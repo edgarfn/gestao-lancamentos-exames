@@ -6,6 +6,7 @@ import { AuthService } from './auth.service';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AuditService } from '../common/audit/audit.service';
 import { TurnstileService } from './turnstile.service';
+import { EmailService } from './email.service';
 
 describe('AuthService', () => {
   let prisma: { usuario: { findUnique: jest.Mock; findUniqueOrThrow: jest.Mock; update: jest.Mock } };
@@ -13,6 +14,7 @@ describe('AuthService', () => {
   let config: { getOrThrow: jest.Mock };
   let audit: { registrar: jest.Mock };
   let turnstile: { validar: jest.Mock };
+  let email: { enviarRecuperacaoSenha: jest.Mock };
   let service: AuthService;
 
   const ctx = { enderecoIp: '127.0.0.1', enderecoIpProxy: null, userAgent: 'jest' };
@@ -40,6 +42,7 @@ describe('AuthService', () => {
     };
     audit = { registrar: jest.fn().mockResolvedValue(undefined) };
     turnstile = { validar: jest.fn().mockResolvedValue(true) };
+    email = { enviarRecuperacaoSenha: jest.fn().mockResolvedValue(undefined) };
 
     service = new AuthService(
       prisma as unknown as PrismaService,
@@ -47,6 +50,7 @@ describe('AuthService', () => {
       config as unknown as ConfigService,
       audit as unknown as AuditService,
       turnstile as unknown as TurnstileService,
+      email as unknown as EmailService,
     );
   });
 

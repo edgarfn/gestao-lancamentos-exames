@@ -53,9 +53,8 @@ export class AuditService {
       });
     } catch (error) {
       this.logger.error(
-        `Falha ao registrar evento de auditoria (${params.acao}/${params.entidade}): ${
-          (error as Error).message
-        }`,
+        { err: error as Error, acao: params.acao, entidade: params.entidade },
+        'Falha ao registrar evento de auditoria',
       );
     }
   }
