@@ -15,6 +15,7 @@ import { MeuPerfilPage } from '@/pages/MeuPerfil/MeuPerfilPage';
 import { AuditoriaPage } from '@/pages/Auditoria/AuditoriaPage';
 import { BackupPage } from '@/pages/Backup/BackupPage';
 import { ConfiguracoesPage } from '@/pages/Configuracoes/ConfiguracoesPage';
+import { RedefinirSenhaPage } from '@/pages/RecuperarSenha/RedefinirSenhaPage';
 
 /** ADMIN e GESTOR gerenciam todas as contas; TECNICO vê e mantém apenas o próprio cadastro. */
 function UsuariosOuMeuPerfil() {
@@ -26,6 +27,7 @@ export function App() {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/recuperar-senha" element={<RedefinirSenhaPage />} />
 
       <Route element={<RotaProtegida />}>
         <Route element={<LayoutPrincipal />}>

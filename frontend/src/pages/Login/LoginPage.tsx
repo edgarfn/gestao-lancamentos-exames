@@ -1,6 +1,7 @@
 import { useRef, useState } from 'react';
 import { useForm } from '@mantine/form';
 import {
+  Anchor,
   Box,
   Button,
   Center,
@@ -21,6 +22,9 @@ import { useAuth } from '@/auth/AuthContext';
 import { isAxiosError } from 'axios';
 import { IconFlask2, IconLock } from '@tabler/icons-react';
 import { useConfiguracaoPublica } from '@/api/configuracoes';
+import { useNecessitaConfiguracao } from '@/api/auth';
+import { EsqueciSenhaModal } from './EsqueciSenhaModal';
+import { SetupInicialModal } from './SetupInicialModal';
 
 interface LocationState {
   de?: { pathname: string };
@@ -34,6 +38,9 @@ export function LoginPage() {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const turnstileRef = useRef<TurnstileInstance>(null);
   const { data: branding } = useConfiguracaoPublica();
+  const [esqueciAberto, setEsqueciAberto] = useState(false);
+  const [setupAberto, setSetupAberto] = useState(false);
+  const { data: precisaSetup } = useNecessitaConfiguracao();
 
   const form = useForm({
     initialValues: { email: '', senha: '' },
@@ -214,6 +221,18 @@ export function LoginPage() {
                 >
                   Entrar
                 </Button>
+                <Center>
+                  <Anchor size="sm" onClick={() => setEsqueciAberto(true)} style={{ cursor: 'pointer' }}>
+                    Esqueci minha senha
+                  </Anchor>
+                </Center>
+                {precisaSetup && (
+                  <Center>
+                    <Anchor size="sm" c="teal" onClick={() => setSetupAberto(true)} style={{ cursor: 'pointer' }}>
+                      Primeira instalação? Configurar administrador
+                    </Anchor>
+                  </Center>
+                )}
               </Stack>
             </form>
           </Paper>
@@ -223,6 +242,13 @@ export function LoginPage() {
           </Text>
         </Stack>
       </Box>
+
+      <EsqueciSenhaModal aberto={esqueciAberto} aoFechar={() => setEsqueciAberto(false)} />
+      <SetupInicialModal
+        aberto={setupAberto}
+        aoFechar={() => setSetupAberto(false)}
+        aoConcluir={() => setSetupAberto(false)}
+      />
     </Box>
   );
 }

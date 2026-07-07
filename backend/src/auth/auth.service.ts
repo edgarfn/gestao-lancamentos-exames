@@ -1,12 +1,14 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import { BadRequestException, Injectable, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import * as argon2 from 'argon2';
+import * as crypto from 'crypto';
 import { PrismaService } from '../common/prisma/prisma.service';
 import { AuditService } from '../common/audit/audit.service';
 import { AuditContext } from '../common/decorators/request-context';
 import { JwtAccessPayload, JwtRefreshPayload } from './types/authenticated-user';
 import { TurnstileService } from './turnstile.service';
+import { EmailService } from './email.service';
 
 export interface TokenPair {
   accessToken: string;
@@ -24,6 +26,12 @@ const CREDENCIAIS_INVALIDAS = 'E-mail ou senha inválidos.';
 /** Mensagem para falhas na verificação anti-bot — distinta da de credenciais, pois não diz respeito à conta informada. */
 const VERIFICACAO_SEGURANCA_FALHOU = 'Verificação de segurança falhou. Atualize a página e tente novamente.';
 
+/** Resposta genérica para "esqueci a senha" — não revela se o e-mail existe. */
+const MSG_RECUPERACAO = 'Se o e-mail existir no sistema, você receberá instruções em breve.';
+
+/** Duração do token de recuperação de senha: 1 hora. */
+const EXPIRACAO_TOKEN_MS = 60 * 60 * 1000;
+
 @Injectable()
 export class AuthService {
   constructor(
@@ -32,6 +40,7 @@ export class AuthService {
     private readonly config: ConfigService,
     private readonly audit: AuditService,
     private readonly turnstile: TurnstileService,
+    private readonly email: EmailService,
   ) {}
 
   async login(
@@ -161,6 +170,92 @@ export class AuthService {
     ]);
 
     return { accessToken, refreshToken, expiresIn: accessExpiresIn };
+  }
+
+  async precisaConfiguracao(): Promise<boolean> {
+    const count = await this.prisma.usuario.count({ where: { papel: 'ADMIN' } });
+    return count === 0;
+  }
+
+  async configuracaoInicial(nome: string, emailAdmin: string, senha: string): Promise<void> {
+    const jaExiste = await this.prisma.usuario.count({ where: { papel: 'ADMIN' } });
+    if (jaExiste > 0) {
+      throw new BadRequestException('O sistema já possui um administrador configurado.');
+    }
+
+    const senhaHash = await argon2.hash(senha, { type: argon2.argon2id });
+    const usuario = await this.prisma.usuario.create({
+      data: { nome, email: emailAdmin, senhaHash, papel: 'ADMIN' },
+    });
+
+    await this.audit.registrar({
+      usuarioId: usuario.id,
+      acao: 'CONFIGURACAO_INICIAL',
+      entidade: 'Usuario',
+      entidadeId: usuario.id,
+      dadosNovos: { nome, email: emailAdmin },
+    });
+  }
+
+  async solicitarRecuperacaoSenha(email: string): Promise<string> {
+    const usuario = await this.prisma.usuario.findUnique({ where: { email } });
+
+    // Resposta idêntica independente de o usuário existir ou não (evita user enumeration)
+    if (!usuario || !usuario.ativo) return MSG_RECUPERACAO;
+
+    const tokenRaw = crypto.randomBytes(32).toString('hex');
+    const tokenHash = crypto.createHash('sha256').update(tokenRaw).digest('hex');
+    const expiraEm = new Date(Date.now() + EXPIRACAO_TOKEN_MS);
+
+    await this.prisma.tokenRecuperacaoSenha.create({
+      data: { usuarioId: usuario.id, tokenHash, expiraEm },
+    });
+
+    const frontendUrl = this.config.get<string>('FRONTEND_URL') ?? 'http://localhost:8089';
+    const urlRecuperacao = `${frontendUrl}/recuperar-senha?token=${tokenRaw}`;
+
+    await this.email.enviarRecuperacaoSenha(usuario.email, usuario.nome, urlRecuperacao);
+
+    await this.audit.registrar({
+      usuarioId: usuario.id,
+      acao: 'RECUPERACAO_SENHA',
+      entidade: 'Usuario',
+      entidadeId: usuario.id,
+      dadosNovos: { etapa: 'solicitacao' },
+    });
+
+    return MSG_RECUPERACAO;
+  }
+
+  async redefinirSenha(tokenRaw: string, novaSenha: string): Promise<void> {
+    const tokenHash = crypto.createHash('sha256').update(tokenRaw).digest('hex');
+
+    const registro = await this.prisma.tokenRecuperacaoSenha.findUnique({ where: { tokenHash } });
+
+    if (!registro || registro.usadoEm || registro.expiraEm < new Date()) {
+      throw new BadRequestException('Token inválido ou expirado.');
+    }
+
+    const novoHash = await argon2.hash(novaSenha, { type: argon2.argon2id });
+
+    await this.prisma.$transaction([
+      this.prisma.tokenRecuperacaoSenha.update({
+        where: { id: registro.id },
+        data: { usadoEm: new Date() },
+      }),
+      this.prisma.usuario.update({
+        where: { id: registro.usuarioId },
+        data: { senhaHash: novoHash, versaoSessao: { increment: 1 } },
+      }),
+    ]);
+
+    await this.audit.registrar({
+      usuarioId: registro.usuarioId,
+      acao: 'RECUPERACAO_SENHA',
+      entidade: 'Usuario',
+      entidadeId: registro.usuarioId,
+      dadosNovos: { etapa: 'redefinicao' },
+    });
   }
 
   private async dummyHash(): Promise<string> {

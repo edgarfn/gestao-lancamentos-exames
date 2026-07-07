@@ -42,6 +42,8 @@ enum AcaoAuditoria {
   BACKUP_CRIACAO
   BACKUP_RESTAURACAO
   BACKUP_EXCLUSAO
+  RECUPERACAO_SENHA
+  CONFIGURACAO_INICIAL
 }
 
 model Usuario {
@@ -57,9 +59,10 @@ model Usuario {
   criadoEm      DateTime  @default(now()) @map("criado_em")
   atualizadoEm  DateTime  @updatedAt @map("atualizado_em")
 
-  tecnico          Tecnico?
-  lancamentosFeitos Lancamento[] @relation("CriadoPor")
-  auditLogs        AuditLog[]
+  tecnico               Tecnico?
+  lancamentosFeitos     Lancamento[]             @relation("CriadoPor")
+  auditLogs             AuditLog[]
+  tokensRecuperacao     TokenRecuperacaoSenha[]
 
   @@map("usuarios")
 }
@@ -202,6 +205,20 @@ model Configuracao {
   atualizadoEm     DateTime @updatedAt @map("atualizado_em")
 
   @@map("configuracoes")
+}
+
+model TokenRecuperacaoSenha {
+  id        String    @id @default(uuid())
+  usuarioId String    @map("usuario_id")
+  tokenHash String    @unique @map("token_hash")
+  expiraEm  DateTime  @map("expira_em")
+  usadoEm   DateTime? @map("usado_em")
+  criadoEm  DateTime  @default(now()) @map("criado_em")
+
+  usuario Usuario @relation(fields: [usuarioId], references: [id], onDelete: Cascade)
+
+  @@index([usuarioId])
+  @@map("tokens_recuperacao_senha")
 }
 
 /// Trilha de auditoria imutável (somente inserção). Registra todo acesso

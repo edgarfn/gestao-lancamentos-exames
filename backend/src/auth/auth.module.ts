@@ -5,6 +5,7 @@ import { APP_GUARD } from '@nestjs/core';
 import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { TurnstileService } from './turnstile.service';
+import { EmailService } from './email.service';
 import { JwtAccessStrategy } from './strategies/jwt-access.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
@@ -16,6 +17,7 @@ import { RolesGuard } from './guards/roles.guard';
   providers: [
     AuthService,
     TurnstileService,
+    EmailService,
     JwtAccessStrategy,
     JwtRefreshStrategy,
     // Guards globais: autenticação obrigatória por padrão (JwtAuthGuard)

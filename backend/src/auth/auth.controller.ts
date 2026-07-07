@@ -1,4 +1,4 @@
-import { Body, Controller, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, Req, UseGuards } from '@nestjs/common';
 import { ApiTags } from '@nestjs/swagger';
 import { AuthGuard } from '@nestjs/passport';
 import { Throttle } from '@nestjs/throttler';
@@ -7,6 +7,9 @@ import { AuthService } from './auth.service';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
+import { SolicitarRecuperacaoDto } from './dto/solicitar-recuperacao.dto';
+import { RedefinirSenhaDto } from './dto/redefinir-senha.dto';
+import { SetupInicialDto } from './dto/setup-inicial.dto';
 import { Public } from './decorators/public.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { AuthenticatedUser } from './types/authenticated-user';
@@ -50,5 +53,37 @@ export class AuthController {
   @Post('alterar-senha')
   async alterarSenha(@CurrentUser() user: AuthenticatedUser, @Body() dto: ChangePasswordDto): Promise<void> {
     await this.authService.alterarSenha(user.id, dto.senhaAtual, dto.novaSenha);
+  }
+
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @Get('precisa-configuracao')
+  async precisaConfiguracao(): Promise<{ precisaConfiguracao: boolean }> {
+    return { precisaConfiguracao: await this.authService.precisaConfiguracao() };
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @HttpCode(HttpStatus.CREATED)
+  @Post('configuracao-inicial')
+  async configuracaoInicial(@Body() dto: SetupInicialDto): Promise<void> {
+    await this.authService.configuracaoInicial(dto.nome, dto.email, dto.senha);
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 3, ttl: 300_000 } })
+  @HttpCode(HttpStatus.OK)
+  @Post('solicitar-recuperacao')
+  async solicitarRecuperacao(@Body() dto: SolicitarRecuperacaoDto): Promise<{ mensagem: string }> {
+    const mensagem = await this.authService.solicitarRecuperacaoSenha(dto.email);
+    return { mensagem };
+  }
+
+  @Public()
+  @Throttle({ default: { limit: 5, ttl: 300_000 } })
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Post('redefinir-senha')
+  async redefinirSenha(@Body() dto: RedefinirSenhaDto): Promise<void> {
+    await this.authService.redefinirSenha(dto.token, dto.novaSenha);
   }
 }
