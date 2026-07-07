@@ -1,6 +1,6 @@
 import { PrismaClient } from '@prisma/client';
 import * as argon2 from 'argon2';
-import { createHash, randomBytes } from 'crypto';
+import { createHash } from 'crypto';
 
 /**
  * Script de seed — cria um usuário ADMIN inicial e um catálogo básico de
@@ -31,8 +31,8 @@ async function main(): Promise<void> {
   const existingAdmin = await prisma.usuario.findUnique({ where: { email: adminEmail } });
 
   if (!existingAdmin) {
-    const generatedPassword = randomBytes(18).toString('base64url');
-    const senhaHash = await argon2.hash(generatedPassword, { type: argon2.argon2id });
+    const senhaInicial = 'MUDAR@123';
+    const senhaHash = await argon2.hash(senhaInicial, { type: argon2.argon2id });
 
     await prisma.usuario.create({
       data: {
@@ -47,8 +47,7 @@ async function main(): Promise<void> {
     console.log('================================================================');
     console.log(' Usuário administrador criado.');
     console.log(` E-mail: ${adminEmail}`);
-    console.log(` Senha temporária (anote agora — não será exibida novamente):`);
-    console.log(`   ${generatedPassword}`);
+    console.log(` Senha inicial: ${senhaInicial}`);
     console.log(' >>> Troque esta senha imediatamente após o primeiro login. <<<');
     console.log('================================================================');
   } else {
