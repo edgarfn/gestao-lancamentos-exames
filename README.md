@@ -30,7 +30,7 @@ cp .env.example .env        # preencha com segredos fortes (ver comentários no 
 docker compose up -d --build
 ```
 
-Após os contêineres ficarem saudáveis, acesse `http://localhost:8080`. As credenciais do
+Após os contêineres ficarem saudáveis, acesse `http://localhost:8089`. As credenciais do
 usuário administrador inicial são geradas e impressas **uma única vez** no log do
 contêiner `backend` durante o seed — veja [INSTALACAO.md](docs/INSTALACAO.md) para o
 passo a passo completo.

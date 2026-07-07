@@ -41,7 +41,7 @@ openssl rand -base64 32   # DATA_ENCRYPTION_KEY (cifragem AES-256-GCM)
 | `DATA_RETENTION_DAYS`                                              | Período de retenção (em dias) antes da anonimização programada de pacientes inativos                                                                                                                                                                                                                                              |
 | `LOG_LEVEL`                                                        | Nível dos logs estruturados (`info`, `debug`, `warn`, `error`)                                                                                                                                                                                                                                                                    |
 | `VITE_API_BASE_URL`                                                | Caminho base da API consumido pelo frontend (`/api/v1` — proxy reverso via Nginx)                                                                                                                                                                                                                                                 |
-| `FRONTEND_PORT`                                                    | Porta publicada no host pelo serviço `frontend` (padrão `8080`)                                                                                                                                                                                                                                                                   |
+| `FRONTEND_PORT`                                                    | Porta publicada no host pelo serviço `frontend` (padrão `8089`)                                                                                                                                                                                                                                                                   |
 | `ADMINER_PORT`                                                     | Porta do Adminer — **apenas** no overlay de desenvolvimento                                                                                                                                                                                                                                                                       |
 
 ### 1.2. Subir os contêineres
@@ -103,13 +103,13 @@ após o primeiro login (menu do usuário → "Alterar senha").
 
 ### 1.4. Acessar o sistema
 
-- Frontend: `http://localhost:8080` (ou a porta definida em `FRONTEND_PORT`)
-- Documentação interativa da API (Swagger): `http://localhost:8080/api/v1/docs`
+- Frontend: `http://localhost:8089` (ou a porta definida em `FRONTEND_PORT`)
+- Documentação interativa da API (Swagger): `http://localhost:8089/api/v1/docs`
   (disponível apenas fora de `NODE_ENV=production`, conforme configurado em `main.ts`)
 - Adminer (apenas com o overlay de desenvolvimento): `http://localhost:8081`
 
 > **Indo para produção com domínio próprio?** Este guia cobre apenas o acesso em HTTP
-> local (`http://localhost:8080`). Antes de expor o sistema à Internet, configure HTTPS
+> local (`http://localhost:8089`). Antes de expor o sistema à Internet, configure HTTPS
 > com certificado válido — veja o passo a passo completo (Windows e Linux) em
 > [CONFIGURACAO_HTTPS.md](CONFIGURACAO_HTTPS.md).
 

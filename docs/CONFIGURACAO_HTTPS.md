@@ -9,7 +9,7 @@ segurança.
 ## 1. Por que isso não vem pronto / quando você precisa disso
 
 O `docker-compose.yml` deste repositório publica o `frontend` apenas em **HTTP**
-(porta 8080) — não há nenhuma terminação TLS configurada por padrão. Isso é
+(porta 8089) — não há nenhuma terminação TLS configurada por padrão. Isso é
 proposital: a forma de terminar TLS (qual domínio, qual certificado, qual proxy)
 é uma decisão do ambiente de produção, não do código da aplicação. Esse ponto já
 é sinalizado como responsabilidade do operador em
@@ -24,7 +24,7 @@ páginas servidas por HTTP simples, e o tráfego sem TLS pode ser interceptado e
 trânsito.
 
 > Se você só está rodando o sistema localmente para desenvolvimento/testes em
-> `http://localhost:8080`, **não precisa** seguir este guia — pule para a seção
+> `http://localhost:8089`, **não precisa** seguir este guia — pule para a seção
 > 5 apenas se quiser testar HTTPS localmente antes de ir para produção.
 
 ## 2. Pré-requisitos (comuns a Windows e Linux)
@@ -134,7 +134,7 @@ Internet  ──(443/HTTPS, 80/HTTP→redirect)──▶  caddy  ──(8080, in
 ```
 
 O Caddy passa a ser o único serviço com portas publicadas no host (80 e 443). O
-`frontend` deixa de publicar a porta 8080 diretamente — ele só é alcançado pelo
+`frontend` deixa de publicar a porta 8089 diretamente — ele só é alcançado pelo
 Caddy, dentro da rede interna `rede-interna` do compose. O `backend` e o
 `postgres` continuam internos, exatamente como hoje.
 
@@ -147,13 +147,13 @@ Edite o seu arquivo `.env` (criado a partir de `.env.example` conforme
 | ---------------------- | ----------------------- | ---------------------------------- | --------------------------------------------------------------------------------------- |
 | `DOMAIN`               | _(não existe)_          | `exames.suaempresa.com.br`         | Novo — usado pelo Caddy para emitir o certificado                                       |
 | `ACME_EMAIL`           | _(não existe)_          | `admin@suaempresa.com.br`          | Novo — e-mail de contato exigido pelo Let's Encrypt                                     |
-| `CORS_ALLOWED_ORIGINS` | `http://localhost:8080` | `https://exames.suaempresa.com.br` | **Obrigatório alterar** — veja nota abaixo                                              |
+| `CORS_ALLOWED_ORIGINS` | `http://localhost:8089` | `https://exames.suaempresa.com.br` | **Obrigatório alterar** — veja nota abaixo                                              |
 | `VITE_API_BASE_URL`    | `/api/v1`               | `/api/v1`                          | **Sem alteração** — é um caminho relativo, continua funcionando atrás de qualquer proxy |
-| `FRONTEND_PORT`        | `8080`                  | _(ignorado pelo overlay HTTPS)_    | O overlay remove a publicação direta da porta do frontend; o Caddy assume 80/443        |
+| `FRONTEND_PORT`        | `8089`                  | _(ignorado pelo overlay HTTPS)_    | O overlay remove a publicação direta da porta do frontend; o Caddy assume 80/443        |
 
 > **Por que `CORS_ALLOWED_ORIGINS` precisa mudar:** o backend valida a origem das
 > requisições contra essa lista (veja `backend/src/main.ts`). Se ela continuar
-> apontando para `http://localhost:8080` enquanto o navegador acessa
+> apontando para `http://localhost:8089` enquanto o navegador acessa
 > `https://exames.suaempresa.com.br`, as chamadas à API serão **bloqueadas por
 > CORS**. Após editar o `.env`, é preciso recriar o backend para que ele leia o
 > novo valor — veja o passo 4.4.
@@ -365,7 +365,7 @@ docker run --rm -v exames-sistema_caddy_data:/data -v "$(pwd)":/backup alpine \
 | ----------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Certificado não é emitido / Caddy fica reiniciando                | DNS não propagado, porta 80 bloqueada, ou _rate limit_ do Let's Encrypt                                         | Revise as seções 2.1/2.2; para testar sem esbarrar no limite, configure temporariamente o ambiente de homologação (_staging_) do Let's Encrypt no `Caddyfile` (`acme_ca https://acme-staging-v02.api.letsencrypt.org/directory` dentro do bloco `tls`) — o certificado de teste não será confiável no navegador, mas confirma que o fluxo de emissão funciona |
 | Aviso de "conteúdo misto" (_mixed content_) no navegador          | Algum recurso (script, imagem, chamada de API) ainda referenciando `http://` explicitamente                     | Confirme que `VITE_API_BASE_URL` continua relativo (`/api/v1`, sem esquema/host fixo) e que não há URLs absolutas `http://` _hardcoded_ no frontend                                                                                                                                                                                                           |
-| Chamadas à API falham com erro de CORS após mudar para HTTPS      | `CORS_ALLOWED_ORIGINS` ainda aponta para `http://localhost:8080` ou o backend não foi recriado                  | Atualize a variável no `.env` para `https://SEU_DOMINIO` e recrie o backend (`docker compose ... up -d --build backend`)                                                                                                                                                                                                                                      |
+| Chamadas à API falham com erro de CORS após mudar para HTTPS      | `CORS_ALLOWED_ORIGINS` ainda aponta para `http://localhost:8089` ou o backend não foi recriado                  | Atualize a variável no `.env` para `https://SEU_DOMINIO` e recrie o backend (`docker compose ... up -d --build backend`)                                                                                                                                                                                                                                      |
 | Loop de redirecionamento (`ERR_TOO_MANY_REDIRECTS`)               | Cabeçalho `X-Forwarded-Proto` não chega corretamente ao backend, fazendo-o pensar que a requisição ainda é HTTP | Confirme que o `Caddyfile` mantém `header_up X-Forwarded-Proto {scheme}` e que o `frontend/nginx.conf` continua repassando `proxy_set_header X-Forwarded-Proto $scheme;` (já vem assim por padrão)                                                                                                                                                            |
 | Navegador continua resolvendo o domínio para o IP/conteúdo antigo | Cache de DNS local desatualizado                                                                                | **Linux**: `sudo systemd-resolve --flush-caches` (ou `sudo resolvectl flush-caches`); **Windows**: `ipconfig /flushdns` no PowerShell/`cmd`; também verifique se não há entradas residuais em `/etc/hosts` (Linux) ou `C:\Windows\System32\drivers\etc\hosts` (Windows)                                                                                       |
 

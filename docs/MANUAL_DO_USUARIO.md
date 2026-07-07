@@ -2,7 +2,7 @@
 
 ## 1. Acesso ao sistema
 
-Acesse o endereço informado pelo administrador (por padrão, `http://localhost:8080`) e
+Acesse o endereço informado pelo administrador (por padrão, `http://localhost:8089`) e
 informe e-mail e senha na tela de login.
 
 - A sessão é mantida **apenas durante a aba aberta** (não sobrevive ao fechamento do

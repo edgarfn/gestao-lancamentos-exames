@@ -6,7 +6,7 @@ A forma recomendada de explorar e testar a API é a documentação interativa ge
 automaticamente a partir do código (`@nestjs/swagger`):
 
 ```
-http://localhost:8080/api/v1/docs
+http://localhost:8089/api/v1/docs
 ```
 
 > Disponível apenas fora de `NODE_ENV=production` (ver `backend/src/main.ts`) — em
@@ -113,17 +113,17 @@ parâmetros e schemas está no Swagger.
 
 ```bash
 # 1. Login
-curl -X POST http://localhost:8080/api/v1/auth/login \
+curl -X POST http://localhost:8089/api/v1/auth/login \
   -H 'Content-Type: application/json' \
   -d '{"email":"admin@exames.local","senha":"<senha-temporaria-do-seed>"}'
 
 # Resposta: { "accessToken": "...", "refreshToken": "...", "usuario": { ... } }
 
 # 2. Chamada autenticada
-curl http://localhost:8080/api/v1/lancamentos?pagina=1&tamanhoPagina=20 \
+curl http://localhost:8089/api/v1/lancamentos?pagina=1&tamanhoPagina=20 \
   -H 'Authorization: Bearer <accessToken>'
 
 # 3. Consulta filtrada (exame + período)
-curl "http://localhost:8080/api/v1/lancamentos?exameId=<uuid>&dataInicio=2026-06-01&dataFim=2026-06-30" \
+curl "http://localhost:8089/api/v1/lancamentos?exameId=<uuid>&dataInicio=2026-06-01&dataFim=2026-06-30" \
   -H 'Authorization: Bearer <accessToken>'
 ```
