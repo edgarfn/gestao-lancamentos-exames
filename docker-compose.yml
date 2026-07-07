@@ -85,7 +85,7 @@ services:
       - "${FRONTEND_PORT:-8089}:8080"
     networks:
       - rede-interna
-
+      - proxy
 volumes:
   postgres_data:
   backup_data:
@@ -93,3 +93,5 @@ volumes:
 networks:
   rede-interna:
     driver: bridge
+  proxy:
+    external: true
