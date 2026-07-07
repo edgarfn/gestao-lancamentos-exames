@@ -22,6 +22,29 @@ services:
     networks:
       - rede-interna
 
+  redis:
+    image: redis:7-alpine
+    restart: unless-stopped
+    command:
+      [
+        "redis-server",
+        "--maxmemory",
+        "64mb",
+        "--maxmemory-policy",
+        "allkeys-lru",
+        "--save",
+        "",
+      ]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      start_period: 5s
+    # Não expõe porta externamente — acessível só pela rede interna
+    networks:
+      - rede-interna
+
   backend:
     build:
       context: ./backend
@@ -29,6 +52,8 @@ services:
     restart: unless-stopped
     depends_on:
       postgres:
+        condition: service_healthy
+      redis:
         condition: service_healthy
     environment:
       NODE_ENV: production
@@ -55,6 +80,7 @@ services:
       SMTP_USER: ${SMTP_USER:-}
       SMTP_PASS: ${SMTP_PASS:-}
       SMTP_FROM: ${SMTP_FROM:-}
+      REDIS_URL: redis://redis:6379
     expose:
       - "3001"
     volumes:

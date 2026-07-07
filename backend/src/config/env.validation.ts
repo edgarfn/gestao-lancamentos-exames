@@ -56,4 +56,9 @@ export const envValidationSchema = Joi.object({
 
   // URL pública do frontend usada para montar o link de recuperação de senha
   FRONTEND_URL: Joi.string().uri().default('http://localhost:8089'),
+
+  // Redis — opcional. Quando definido, o rate limiting passa a usar contadores
+  // compartilhados entre instâncias (modo distribuído). Sem Redis, usa memória
+  // local (suficiente para instância única; não compartilha entre réplicas).
+  REDIS_URL: Joi.string().uri({ scheme: ['redis', 'rediss'] }).allow('').optional(),
 });

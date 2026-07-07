@@ -20,8 +20,9 @@ import { RefreshTokenContext } from './strategies/jwt-refresh.strategy';
 export class AuthController {
   constructor(private readonly authService: AuthService) {}
 
+  // 3 tentativas / 15 min — anti brute-force e credential stuffing
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 60_000 } })
+  @Throttle({ global: { ttl: 15 * 60_000, limit: 3 } })
   @HttpCode(HttpStatus.OK)
   @Post('login')
   async login(@Body() dto: LoginDto, @Req() req: Request) {
@@ -33,9 +34,10 @@ export class AuthController {
     });
   }
 
+  // 10 tentativas / min — renovação de token (operação legítima frequente)
   @Public()
   @UseGuards(AuthGuard('jwt-refresh'))
-  @Throttle({ default: { limit: 10, ttl: 60_000 } })
+  @Throttle({ global: { ttl: 60_000, limit: 10 } })
   @HttpCode(HttpStatus.OK)
   @Post('refresh')
   async refresh(@Body() _dto: RefreshTokenDto, @Req() req: Request) {
@@ -55,6 +57,7 @@ export class AuthController {
     await this.authService.alterarSenha(user.id, dto.senhaAtual, dto.novaSenha);
   }
 
+  // Checagem pública frequente — limit alto, não é vetor de ataque
   @Public()
   @HttpCode(HttpStatus.OK)
   @Get('precisa-configuracao')
@@ -62,16 +65,18 @@ export class AuthController {
     return { precisaConfiguracao: await this.authService.precisaConfiguracao() };
   }
 
+  // 2 tentativas / hora — operação única de bootstrap do sistema
   @Public()
-  @Throttle({ default: { limit: 3, ttl: 60_000 } })
+  @Throttle({ global: { ttl: 60 * 60_000, limit: 2 } })
   @HttpCode(HttpStatus.CREATED)
   @Post('configuracao-inicial')
   async configuracaoInicial(@Body() dto: SetupInicialDto): Promise<void> {
     await this.authService.configuracaoInicial(dto.nome, dto.email, dto.senha);
   }
 
+  // 3 tentativas / 5 min — anti spam de e-mail e enumeração de usuários
   @Public()
-  @Throttle({ default: { limit: 3, ttl: 300_000 } })
+  @Throttle({ global: { ttl: 5 * 60_000, limit: 3 } })
   @HttpCode(HttpStatus.OK)
   @Post('solicitar-recuperacao')
   async solicitarRecuperacao(@Body() dto: SolicitarRecuperacaoDto): Promise<{ mensagem: string }> {
@@ -79,8 +84,9 @@ export class AuthController {
     return { mensagem };
   }
 
+  // 5 tentativas / 5 min — token de uso único, janela curta
   @Public()
-  @Throttle({ default: { limit: 5, ttl: 300_000 } })
+  @Throttle({ global: { ttl: 5 * 60_000, limit: 5 } })
   @HttpCode(HttpStatus.NO_CONTENT)
   @Post('redefinir-senha')
   async redefinirSenha(@Body() dto: RedefinirSenhaDto): Promise<void> {

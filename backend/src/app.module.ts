@@ -1,12 +1,14 @@
 import { Module } from '@nestjs/common';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { ScheduleModule } from '@nestjs/schedule';
-import { ThrottlerGuard, ThrottlerModule } from '@nestjs/throttler';
+import { ThrottlerModule } from '@nestjs/throttler';
 import { APP_FILTER, APP_GUARD } from '@nestjs/core';
 import { LoggerModule } from 'nestjs-pino';
 import { randomUUID } from 'crypto';
 import type { IncomingMessage, ServerResponse } from 'http';
 import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
+import { RateLimitGuard } from './common/guards/rate-limit.guard';
+import { ThrottlerRedisStorage } from './common/guards/throttler-redis.storage';
 import { envValidationSchema } from './config/env.validation';
 import { PrismaModule } from './common/prisma/prisma.module';
 import { CryptoModule } from './common/crypto/crypto.module';
@@ -80,17 +82,33 @@ const CAMPOS_SENSIVEIS_PARA_REDACAO = [
       }),
     }),
 
-    // Rate limiting global — mitigação de força bruta e abuso de API.
+    // Rate limiting — proteção contra força bruta, credential stuffing e DoS.
+    // Usa Redis (REDIS_URL) quando disponível para compartilhar contadores entre
+    // múltiplas instâncias; cai automaticamente para memória local sem Redis.
+    //
+    // Throttler único nomeado "global" (100 req/min padrão para toda a API).
+    // Rotas sensíveis sobrescrevem via @Throttle({ global: { ttl, limit } }):
+    //   Login             → 3 tentativas / 15 min  (anti brute-force)
+    //   Recuperação senha → 3 tentativas / 5 min   (anti spam de e-mail)
+    //   Redefinir senha   → 5 tentativas / 5 min   (token de uso único)
+    //   Setup inicial     → 2 tentativas / 1 hora  (operação de boot)
     ThrottlerModule.forRootAsync({
       inject: [ConfigService],
-      useFactory: (config: ConfigService) => ({
-        throttlers: [
-          {
-            ttl: (config.get<number>('THROTTLE_TTL_SECONDS') ?? 60) * 1000,
-            limit: config.get<number>('THROTTLE_LIMIT') ?? 100,
-          },
-        ],
-      }),
+      useFactory: (config: ConfigService) => {
+        const redisUrl = config.get<string>('REDIS_URL');
+        const storage = redisUrl ? new ThrottlerRedisStorage(redisUrl) : undefined;
+
+        return {
+          throttlers: [
+            {
+              name: 'global',
+              ttl: (config.get<number>('THROTTLE_TTL_SECONDS') ?? 60) * 1000,
+              limit: config.get<number>('THROTTLE_LIMIT') ?? 100,
+            },
+          ],
+          ...(storage ? { storage } : {}),
+        };
+      },
     }),
 
     ScheduleModule.forRoot(),
@@ -117,7 +135,7 @@ const CAMPOS_SENSIVEIS_PARA_REDACAO = [
     // contexto estruturado (reqId, userId, path, statusCode, stack).
     // Registrado antes dos guards para garantir cobertura total.
     { provide: APP_FILTER, useClass: AllExceptionsFilter },
-    { provide: APP_GUARD, useClass: ThrottlerGuard },
+    { provide: APP_GUARD, useClass: RateLimitGuard },
   ],
 })
 export class AppModule {}
