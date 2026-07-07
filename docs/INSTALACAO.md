@@ -184,7 +184,7 @@ npx prisma db seed
 npm run start:dev
 ```
 
-A API ficará disponível em `http://localhost:3000/api/v1`.
+A API ficará disponível em `http://localhost:3001/api/v1`.
 
 ### 2.3. Frontend
 

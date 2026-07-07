@@ -72,7 +72,7 @@ async function bootstrap(): Promise<void> {
     SwaggerModule.setup('api/docs', app, document);
   }
 
-  const port = config.get<number>('PORT') ?? 3000;
+  const port = config.get<number>('PORT') ?? 3001;
   await app.listen(port);
   logger.log(`Aplicação iniciada na porta ${port}`);
 }

@@ -32,7 +32,7 @@ services:
         condition: service_healthy
     environment:
       NODE_ENV: production
-      PORT: 3000
+      PORT: 3001
       DATABASE_URL: postgresql://${POSTGRES_USER:-exames_app}:${POSTGRES_PASSWORD:?defina POSTGRES_PASSWORD no arquivo .env}@postgres:5432/${POSTGRES_DB:-exames_db}?schema=public
       JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:?defina JWT_ACCESS_SECRET no arquivo .env}
       JWT_ACCESS_EXPIRES_IN: ${JWT_ACCESS_EXPIRES_IN:-15m}
@@ -49,7 +49,7 @@ services:
       BACKUP_RETENTION_DIAS: ${BACKUP_RETENTION_DIAS:-30}
       LOG_LEVEL: ${LOG_LEVEL:-info}
     expose:
-      - "3000"
+      - "3001"
     volumes:
       # Volume dedicado para os arquivos de backup — separado do volume de
       # dados do PostgreSQL para que um backup não dependa do mesmo disco
@@ -61,7 +61,7 @@ services:
           "CMD",
           "node",
           "-e",
-          "require('http').get('http://127.0.0.1:3000/api/v1/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))",
+          "require('http').get('http://127.0.0.1:3001/api/v1/health', (r) => process.exit(r.statusCode === 200 ? 0 : 1)).on('error', () => process.exit(1))",
         ]
       interval: 30s
       timeout: 5s
