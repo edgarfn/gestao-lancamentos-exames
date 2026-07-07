@@ -1,0 +1,229 @@
+// Schema Prisma — Sistema de Gestão de Lançamentos de Exames
+// Banco: PostgreSQL
+//
+// Convenções de privacy/security by design aplicadas neste schema:
+//  - Dados pessoais sensíveis (CPF, contato) são armazenados CIFRADOS
+//    (campo "*_cifrado") pela aplicação (ver CryptoService); um hash de
+//    busca determinístico ("*_hash") permite consultas exatas sem decifrar.
+//  - Exclusão lógica (soft delete) via "deletadoEm" preserva histórico para
+//    fins de auditoria/retenção controlada, evitando perda acidental de dados
+//    e permitindo anonimização programada (LGPD — direito ao esquecimento).
+//  - "audit_logs" é uma tabela somente-inserção (sem updatedAt/onDelete),
+//    funcionando como trilha de auditoria imutável.
+
+generator client {
+  provider      = "prisma-client-js"
+  // Inclui o binary target da imagem de execução (node:20-alpine, musl/OpenSSL 3)
+  // além do alvo nativo usado em desenvolvimento — evita falhas de runtime
+  // em produção por incompatibilidade de engine binária.
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Papel {
+  ADMIN
+  GESTOR
+  TECNICO
+}
+
+enum AcaoAuditoria {
+  CRIACAO
+  LEITURA
+  ATUALIZACAO
+  EXCLUSAO
+  EXPORTACAO
+  LOGIN
+  LOGIN_FALHO
+  ANONIMIZACAO
+  BACKUP_CRIACAO
+  BACKUP_RESTAURACAO
+  BACKUP_EXCLUSAO
+}
+
+model Usuario {
+  id            String    @id @default(uuid())
+  nome          String
+  email         String    @unique
+  senhaHash     String    @map("senha_hash")
+  papel         Papel     @default(TECNICO)
+  ativo         Boolean   @default(true)
+  /// Incrementada a cada logout-global/troca de senha; invalida refresh tokens antigos.
+  versaoSessao  Int       @default(1) @map("versao_sessao")
+  ultimoLoginEm DateTime? @map("ultimo_login_em")
+  criadoEm      DateTime  @default(now()) @map("criado_em")
+  atualizadoEm  DateTime  @updatedAt @map("atualizado_em")
+
+  tecnico          Tecnico?
+  lancamentosFeitos Lancamento[] @relation("CriadoPor")
+  auditLogs        AuditLog[]
+
+  @@map("usuarios")
+}
+
+model Tecnico {
+  id                  String    @id @default(uuid())
+  nome                String
+  documentoCifrado     String?   @map("documento_cifrado")
+  documentoHash        String?   @unique @map("documento_hash")
+  registroProfissional String?   @map("registro_profissional")
+  ativo               Boolean   @default(true)
+  usuarioId           String?   @unique @map("usuario_id")
+  usuario             Usuario?  @relation(fields: [usuarioId], references: [id])
+  criadoEm            DateTime  @default(now()) @map("criado_em")
+  atualizadoEm        DateTime  @updatedAt @map("atualizado_em")
+  deletadoEm          DateTime? @map("deletado_em")
+
+  lancamentos Lancamento[]
+
+  @@index([nome])
+  @@index([deletadoEm])
+  @@map("tecnicos")
+}
+
+model Paciente {
+  id               String    @id @default(uuid())
+  nome             String
+  documentoCifrado String?   @map("documento_cifrado")
+  documentoHash    String?   @unique @map("documento_hash")
+  dataNascimento   DateTime? @map("data_nascimento") @db.Date
+  contatoCifrado   String?   @map("contato_cifrado")
+  criadoEm         DateTime  @default(now()) @map("criado_em")
+  atualizadoEm     DateTime  @updatedAt @map("atualizado_em")
+  deletadoEm       DateTime? @map("deletado_em")
+  anonimizadoEm    DateTime? @map("anonimizado_em")
+
+  lancamentos Lancamento[]
+
+  @@index([nome])
+  @@index([deletadoEm])
+  @@map("pacientes")
+}
+
+model Especialidade {
+  id           String    @id @default(cuid())
+  nome         String
+  descricao    String?
+  ativo        Boolean   @default(true)
+  criadoEm     DateTime  @default(now()) @map("criado_em")
+  atualizadoEm DateTime  @updatedAt @map("atualizado_em")
+  deletadoEm   DateTime? @map("deletado_em")
+
+  exames Exame[]
+
+  @@index([nome])
+  @@index([deletadoEm])
+  @@map("especialidades")
+}
+
+model Convenio {
+  id           String    @id @default(uuid())
+  nome         String
+  descricao    String?
+  ativo        Boolean   @default(true)
+  criadoEm     DateTime  @default(now()) @map("criado_em")
+  atualizadoEm DateTime  @updatedAt @map("atualizado_em")
+  deletadoEm   DateTime? @map("deletado_em")
+
+  lancamentos Lancamento[]
+
+  @@index([nome])
+  @@index([deletadoEm])
+  @@map("convenios")
+}
+
+model Exame {
+  id              String         @id @default(uuid())
+  nome            String
+  codigo          String         @unique
+  valorPadrao     Decimal        @map("valor_padrao") @db.Decimal(10, 2)
+  ativo           Boolean        @default(true)
+  especialidadeId String?        @map("especialidade_id")
+  especialidade   Especialidade? @relation(fields: [especialidadeId], references: [id], onDelete: SetNull)
+  criadoEm        DateTime       @default(now()) @map("criado_em")
+  atualizadoEm    DateTime       @updatedAt @map("atualizado_em")
+  deletadoEm      DateTime?      @map("deletado_em")
+
+  lancamentos Lancamento[]
+
+  @@index([nome])
+  @@index([deletadoEm])
+  @@index([especialidadeId])
+  @@map("exames")
+}
+
+/// Registro transacional principal: um lançamento de exame realizado
+/// por um técnico, em um paciente, em uma data, com quantidade e valor.
+model Lancamento {
+  id           String    @id @default(uuid())
+  tecnicoId    String    @map("tecnico_id")
+  pacienteId   String    @map("paciente_id")
+  exameId      String    @map("exame_id")
+  convenioId   String?   @map("convenio_id")
+  data         DateTime  @db.Date
+  quantidade   Int
+  valor        Decimal   @db.Decimal(10, 2)
+  observacoes  String?
+  criadoPorId  String    @map("criado_por_id")
+  criadoEm     DateTime  @default(now()) @map("criado_em")
+  atualizadoEm DateTime  @updatedAt @map("atualizado_em")
+  deletadoEm   DateTime? @map("deletado_em")
+
+  tecnico   Tecnico   @relation(fields: [tecnicoId], references: [id])
+  paciente  Paciente  @relation(fields: [pacienteId], references: [id])
+  exame     Exame     @relation(fields: [exameId], references: [id])
+  convenio  Convenio? @relation(fields: [convenioId], references: [id], onDelete: SetNull)
+  criadoPor Usuario   @relation("CriadoPor", fields: [criadoPorId], references: [id])
+
+  // Índices alinhados aos filtros pedidos: exame, técnico, data, paciente, convênio
+  @@index([exameId, data])
+  @@index([tecnicoId, data])
+  @@index([pacienteId, data])
+  @@index([convenioId])
+  @@index([data])
+  @@index([deletadoEm])
+  @@map("lancamentos")
+}
+
+/// Configurações da clínica — singleton (único registro, id fixo "singleton").
+/// Permite personalizar o nome, logotipo e dados de contato exibidos no sistema.
+model Configuracao {
+  id               String   @id @default(cuid())
+  nomeClinica      String?  @map("nome_clinica")
+  cnpj             String?
+  endereco         String?
+  telefone         String?
+  emailContato     String?  @map("email_contato")
+  logoNome         String?  @map("logo_nome")
+  mensagemBemVindo String?  @map("mensagem_bem_vindo")
+  atualizadoEm     DateTime @updatedAt @map("atualizado_em")
+
+  @@map("configuracoes")
+}
+
+/// Trilha de auditoria imutável (somente inserção). Registra todo acesso
+/// e alteração a dados sensíveis, atendendo ao princípio de
+/// responsabilização (accountability) da LGPD.
+model AuditLog {
+  id          String        @id @default(uuid())
+  usuarioId   String?       @map("usuario_id")
+  acao        AcaoAuditoria
+  entidade    String
+  entidadeId  String?       @map("entidade_id")
+  dadosAntigos Json?        @map("dados_antigos")
+  dadosNovos  Json?         @map("dados_novos")
+  enderecoIp       String?       @map("endereco_ip")
+  enderecoIpProxy  String?       @map("endereco_ip_proxy")
+  userAgent        String?       @map("user_agent")
+  criadoEm         DateTime      @default(now()) @map("criado_em")
+
+  usuario Usuario? @relation(fields: [usuarioId], references: [id])
+
+  @@index([entidade, entidadeId])
+  @@index([usuarioId, criadoEm])
+  @@index([criadoEm])
+  @@map("audit_logs")
+}

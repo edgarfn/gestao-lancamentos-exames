@@ -1,0 +1,23 @@
+{
+  "name": "exames-sistema",
+  "private": true,
+  "description": "Ferramentas de desenvolvimento de raiz (git hooks) — backend e frontend são projetos independentes em ./backend e ./frontend.",
+  "scripts": {
+    "prepare": "husky"
+  },
+  "devDependencies": {
+    "husky": "^9.1.6",
+    "lint-staged": "^15.2.10"
+  },
+  "lint-staged": {
+    "backend/**/*.{ts,js}": [
+      "bash -c 'cd backend && npx eslint --fix --max-warnings 0' --"
+    ],
+    "frontend/**/*.{ts,tsx,js,jsx}": [
+      "bash -c 'cd frontend && npx eslint . --ext ts,tsx --fix --max-warnings 0' --"
+    ],
+    "**/*.{json,md,yml,yaml}": [
+      "prettier --write --ignore-unknown"
+    ]
+  }
+}

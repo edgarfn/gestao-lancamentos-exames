@@ -1,0 +1,102 @@
+name: Segurança — dependências, segredos e imagens
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+  schedule:
+    # Toda segunda-feira às 06:00 UTC — varredura periódica de dependências/imagens
+    - cron: "0 6 * * 1"
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  segredos:
+    name: Varredura de segredos (gitleaks)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  dependencias:
+    name: Auditoria de dependências (npm audit)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        projeto: [backend, frontend]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: npm
+          cache-dependency-path: ${{ matrix.projeto }}/package-lock.json
+
+      - name: Instalar dependências
+        working-directory: ${{ matrix.projeto }}
+        run: npm ci
+
+      # Gate obrigatório: nenhuma vulnerabilidade crítica em dependência de produção
+      # (o que de fato é executado/distribuído). Vulnerabilidades em devDependencies
+      # (toolchain de build/teste) são reportadas abaixo para triagem, sem bloquear o
+      # pipeline — corrigi-las normalmente exige upgrades de major version (ex.: NestJS
+      # 10→11, Vite/Vitest 2→4) que devem ser planejados deliberadamente.
+      - name: npm audit — dependências de produção (bloqueia em vulnerabilidades críticas)
+        working-directory: ${{ matrix.projeto }}
+        run: npm audit --omit=dev --audit-level=critical
+
+      - name: npm audit — relatório completo (informativo, não bloqueia)
+        working-directory: ${{ matrix.projeto }}
+        if: always()
+        continue-on-error: true
+        run: npm audit --audit-level=high
+
+  imagens:
+    name: Scan de imagens de container (Trivy)
+    runs-on: ubuntu-latest
+    needs: [dependencias]
+    strategy:
+      matrix:
+        include:
+          - projeto: backend
+            imagem: exames-backend:scan
+          - projeto: frontend
+            imagem: exames-frontend:scan
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build da imagem (${{ matrix.projeto }})
+        uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.projeto }}
+          push: false
+          load: true
+          tags: ${{ matrix.imagem }}
+          build-args: |
+            VITE_API_BASE_URL=/api
+
+      - name: Trivy — varredura de vulnerabilidades
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: ${{ matrix.imagem }}
+          format: sarif
+          output: trivy-${{ matrix.projeto }}.sarif
+          severity: CRITICAL,HIGH
+          ignore-unfixed: true
+
+      - name: Publicar resultados no GitHub Security
+        uses: github/codeql-action/upload-sarif@v3
+        if: always()
+        with:
+          sarif_file: trivy-${{ matrix.projeto }}.sarif
+          category: trivy-${{ matrix.projeto }}

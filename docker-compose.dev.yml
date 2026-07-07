@@ -1,0 +1,26 @@
+# Overlay de desenvolvimento — uso:
+#   docker compose -f docker-compose.yml -f docker-compose.dev.yml up
+#
+# Expõe a porta do PostgreSQL e adiciona o Adminer (interface web de
+# administração do banco). NUNCA utilize este arquivo em produção: ele
+# amplia a superfície de exposição do banco de dados.
+
+services:
+  postgres:
+    ports:
+      # 5433 por padrão: evita colidir com uma instância nativa do PostgreSQL
+      # eventualmente já em execução na máquina host na porta 5432.
+      - "${POSTGRES_PORT:-5433}:5432"
+
+  adminer:
+    image: adminer:4-standalone
+    restart: unless-stopped
+    depends_on:
+      - postgres
+    environment:
+      ADMINER_DEFAULT_SERVER: postgres
+      ADMINER_DESIGN: pepa-linha-dark
+    ports:
+      - "${ADMINER_PORT:-8081}:8080"
+    networks:
+      - rede-interna

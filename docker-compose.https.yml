@@ -1,0 +1,43 @@
+# Overlay de produção com HTTPS — uso:
+#   docker compose -f docker-compose.yml -f docker-compose.https.yml up -d --build
+#
+# Adiciona um serviço "caddy" que assume as portas 80/443 do host, obtém e
+# renova automaticamente um certificado TLS válido via Let's Encrypt (ACME) e
+# encaminha o tráfego para o serviço "frontend" — que continua intacto,
+# servindo apenas internamente na rede do compose. Requer um domínio público
+# com DNS apontando para este servidor (variáveis DOMAIN e ACME_EMAIL no .env).
+#
+# Veja o passo a passo completo (Windows e Linux) em docs/CONFIGURACAO_HTTPS.md.
+#
+# NUNCA combine este overlay com docker-compose.dev.yml em produção.
+
+services:
+  caddy:
+    image: caddy:2-alpine
+    restart: unless-stopped
+    depends_on:
+      - frontend
+    environment:
+      DOMAIN: "${DOMAIN:?defina DOMAIN no arquivo .env, ex. exames.suaempresa.com.br}"
+      ACME_EMAIL: "${ACME_EMAIL:?defina ACME_EMAIL no arquivo .env com o e-mail de contato do Let's Encrypt}"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./deploy/caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    networks:
+      - rede-interna
+
+  # O Caddy passa a ser o único ponto de entrada público (portas 80/443 com
+  # TLS). A publicação direta da porta do frontend é removida aqui para que
+  # o tráfego HTTP não autenticado/sem TLS não fique acessível pela Internet
+  # — "!reset" limpa a lista herdada do docker-compose.yml (requer Docker
+  # Compose v2.24+; já é o mínimo recomendado neste projeto).
+  frontend:
+    ports: !reset []
+
+volumes:
+  caddy_data:
+  caddy_config:

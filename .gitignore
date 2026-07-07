@@ -1,0 +1,55 @@
+# Dependências
+node_modules/
+.pnp
+.pnp.js
+
+# Builds
+dist/
+build/
+.next/
+out/
+coverage/
+
+# Variáveis de ambiente — NUNCA versionar segredos reais
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# Prisma
+backend/prisma/migrations/dev/
+
+# Logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+
+# Editor / OS
+.vscode/*
+!.vscode/extensions.json
+.idea/
+.claude/
+.DS_Store
+Thumbs.db
+
+# Testes
+junit.xml
+*.lcov
+
+# TypeScript incremental build cache
+*.tsbuildinfo
+
+# Docker
+docker-compose.override.yml
+
+# Chaves e certificados — nunca versionar
+*.pem
+*.key
+*.crt
+secrets/
+
+# Arquivos com segredos reais de produção — nunca versionar
+.env-producao
+credenciais.txt

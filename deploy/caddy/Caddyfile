@@ -1,0 +1,20 @@
+# Configuração do Caddy — proxy reverso com TLS automático (Let's Encrypt).
+#
+# {$DOMAIN} e {$ACME_EMAIL} vêm das variáveis de ambiente DOMAIN e ACME_EMAIL
+# (definidas no arquivo .env — veja .env.example). O Caddy:
+#   1. Emite e renova o certificado automaticamente via ACME/Let's Encrypt;
+#   2. Redireciona todo o tráfego HTTP (porta 80) para HTTPS (porta 443);
+#   3. Encaminha as requisições para o serviço "frontend" (nginx interno),
+#      que continua resolvendo /api/ para o backend exatamente como hoje.
+#
+# Veja o passo a passo completo em docs/CONFIGURACAO_HTTPS.md.
+
+{$DOMAIN} {
+	tls {$ACME_EMAIL}
+
+	encode gzip
+
+	reverse_proxy frontend:8080 {
+		header_up X-Forwarded-Proto {scheme}
+	}
+}
