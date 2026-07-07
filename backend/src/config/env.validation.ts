@@ -44,13 +44,15 @@ export const envValidationSchema = Joi.object({
 
   LOG_LEVEL: Joi.string().valid('fatal', 'error', 'warn', 'info', 'debug', 'trace').default('info'),
 
-  // Recuperação de senha por e-mail — opcional. Sem SMTP_HOST o link é apenas logado no console.
-  SMTP_HOST: Joi.string().optional(),
+  // Recuperação de senha por e-mail — todos opcionais. Sem SMTP_HOST (ou string
+  // vazia, como acontece quando a variável não está definida no .env e o
+  // docker-compose passa "" como fallback) o link é apenas logado no console.
+  SMTP_HOST: Joi.string().allow('').optional(),
   SMTP_PORT: Joi.number().port().default(587),
   SMTP_SECURE: Joi.boolean().default(false),
-  SMTP_USER: Joi.string().optional(),
-  SMTP_PASS: Joi.string().optional(),
-  SMTP_FROM: Joi.string().optional(),
+  SMTP_USER: Joi.string().allow('').optional(),
+  SMTP_PASS: Joi.string().allow('').optional(),
+  SMTP_FROM: Joi.string().allow('').optional(),
 
   // URL pública do frontend usada para montar o link de recuperação de senha
   FRONTEND_URL: Joi.string().uri().default('http://localhost:8089'),

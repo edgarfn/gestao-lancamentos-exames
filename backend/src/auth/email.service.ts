@@ -9,7 +9,7 @@ export class EmailService {
 
   constructor(private readonly config: ConfigService) {
     const host = this.config.get<string>('SMTP_HOST');
-    if (host) {
+    if (host && host.trim() !== '') {
       this.transporter = nodemailer.createTransport({
         host,
         port: this.config.get<number>('SMTP_PORT') ?? 587,
