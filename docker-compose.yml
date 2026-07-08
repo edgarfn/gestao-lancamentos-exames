@@ -88,6 +88,8 @@ services:
       # dados do PostgreSQL para que um backup não dependa do mesmo disco
       # que ele protege.
       - backup_data:/var/backups/exames
+      # Volume persistente para uploads (logotipo da clínica e futuras mídias)
+      - configuracoes_data:/var/uploads/configuracoes
     healthcheck:
       test:
         [
@@ -122,6 +124,7 @@ services:
 volumes:
   postgres_data:
   backup_data:
+  configuracoes_data:
 
 networks:
   rede-interna:

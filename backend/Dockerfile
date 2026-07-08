@@ -39,10 +39,11 @@ RUN apk add --no-cache openssl postgresql16-client
 # de vulnerabilidade no processo da aplicação (security by design).
 RUN addgroup -S appgroup && adduser -S appuser -G appgroup
 
-# Diretório onde os arquivos de backup ficam armazenados (montado como volume
-# persistente em produção — ver docker-compose.yml). Criado e ajustado aqui
-# para que o usuário não-root "appuser" tenha permissão de escrita.
-RUN mkdir -p /var/backups/exames && chown appuser:appgroup /var/backups/exames
+# Diretórios de dados persistentes (montados como volumes em produção — ver
+# docker-compose.yml). Criados aqui com permissão para o usuário não-root
+# "appuser" para que a aplicação possa gravar sem acesso de root.
+RUN mkdir -p /var/backups/exames /var/uploads/configuracoes \
+  && chown -R appuser:appgroup /var/backups/exames /var/uploads/configuracoes
 
 COPY --from=build --chown=appuser:appgroup /app/node_modules ./node_modules
 COPY --from=build --chown=appuser:appgroup /app/dist ./dist
