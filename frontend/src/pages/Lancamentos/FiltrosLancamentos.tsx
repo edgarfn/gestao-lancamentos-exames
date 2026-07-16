@@ -105,6 +105,7 @@ export function FiltrosLancamentos({ filtro, aoMudar }: FiltrosLancamentosProps)
       <Grid.Col span={{ base: 12, sm: 6, md: 6 }}>
         <DatePickerInput
           type="range"
+          allowSingleDateInRange
           numberOfColumns={2}
           label="Período (data do exame)"
           placeholder="Selecione o intervalo"
