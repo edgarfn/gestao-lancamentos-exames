@@ -17,7 +17,7 @@ export interface AuditContext {
  * Extrai dados de contexto da requisição relevantes para auditoria
  * (quem, de onde) sem acoplar os serviços de domínio ao objeto Request.
  *
- * Com `trust proxy = 1` habilitado no Express:
+ * Com `trust proxy` configurado no Express (ver main.ts):
  *  - `enderecoIp`      = IP real do cliente (do cabeçalho X-Forwarded-For)
  *  - `enderecoIpProxy` = IP direto da conexão TCP (proxy/container)
  */

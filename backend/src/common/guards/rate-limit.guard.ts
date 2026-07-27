@@ -14,8 +14,8 @@ import type { Request, Response } from 'express';
  *  - Fail-open: erros de storage (Redis down) permitem a requisição mas
  *    geram log de alerta — disponibilidade priorizada sobre proteção
  *    em caso de falha da infraestrutura de cache
- *  - IP tracking via req.ip (resolvido pelo trust proxy 1 no main.ts,
- *    preserva o endereço real do cliente mesmo atrás de proxy/CDN)
+ *  - IP tracking via req.ip (resolvido pela configuração de trust proxy no
+ *    main.ts, preserva o endereço real do cliente mesmo atrás de proxy/CDN)
  */
 @Injectable()
 export class RateLimitGuard extends ThrottlerGuard {
@@ -75,7 +75,7 @@ export class RateLimitGuard extends ThrottlerGuard {
     );
   }
 
-  // Rastreia por IP real (X-Forwarded-For já resolvido pelo trust proxy 1)
+  // Rastreia por IP real (X-Forwarded-For já resolvido pela config. de trust proxy)
   protected override getTracker(req: Record<string, unknown>): Promise<string> {
     const ip =
       (req as unknown as Request).ip ??

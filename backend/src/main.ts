@@ -10,9 +10,20 @@ import { AppModule } from './app.module';
 async function bootstrap(): Promise<void> {
   const app = await NestFactory.create<NestExpressApplication>(AppModule, { bufferLogs: true });
 
-  // Confia em 1 nível de proxy reverso (Nginx → app).
-  // Sem isso, req.ip retorna o IP do container Docker em vez do IP real do cliente.
-  app.set('trust proxy', 1);
+  // Confia em qualquer proxy reverso "interno" (faixas de IP privadas/loopback do
+  // Docker), em vez de um número fixo de saltos. Motivo: a topologia de proxies
+  // muda conforme o deploy — só Nginx (docker-compose.yml) ou Caddy + Nginx
+  // (overlay docker-compose.https.yml, usado em produção com HTTPS) — e um número
+  // fixo (ex.: 1) fica incorreto sempre que a contagem real de saltos for
+  // diferente. Com 2 proxies reais (Caddy → Nginx) e apenas 1 salto confiado,
+  // req.ip resolvia para o IP interno do Caddy em vez do IP real do cliente —
+  // causa raiz do IP incorreto exibido na página de Auditoria.
+  // Os presets abaixo (proxy-addr) confiam em qualquer IP privado/loopback da
+  // cadeia — sempre os containers Docker internos — e param no primeiro IP
+  // público encontrado, que é sempre o cliente real: um IP público da Internet
+  // nunca cai nessas faixas, então não é possível se passar por um salto confiado
+  // forjando X-Forwarded-For.
+  app.set('trust proxy', 'loopback, linklocal, uniquelocal');
   const config = app.get(ConfigService);
   const logger = app.get(Logger);
   app.useLogger(logger);
