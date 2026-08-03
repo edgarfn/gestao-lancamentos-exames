@@ -23,22 +23,51 @@ export interface ClinicaInfoPdf {
 interface ColunaTabela {
   titulo: string;
   largura: number;
+  align?: 'left' | 'right' | 'center';
   obterValor: (item: LancamentoApresentavel) => string;
 }
 
 const MARGEM = 40;
-const ALTURA_LINHA = 20;
+const ALTURA_LINHA = 22;
+const ALTURA_CABECALHO_TABELA = 22;
+const PADDING_COLUNA = 6;
 const LOGO_SIZE = 52;
+const COR_ZEBRA = '#f6f7f9';
+const COR_FUNDO_CABECALHO = '#eef1f4';
+const COR_LINHA_GRADE = '#e6e6e6';
 
 const COLUNAS: ColunaTabela[] = [
-  { titulo: 'Data', largura: 58, obterValor: (item) => formatarData(item.data) },
-  { titulo: 'Técnico', largura: 95, obterValor: (item) => item.tecnico.nome },
-  { titulo: 'Paciente', largura: 95, obterValor: (item) => item.paciente.nome },
-  { titulo: 'Especialidade', largura: 80, obterValor: (item) => item.exame.especialidade?.nome ?? '—' },
-  { titulo: 'Exame', largura: 97, obterValor: (item) => `${item.exame.nome} (${item.exame.codigo})` },
-  { titulo: 'Qtd.', largura: 35, obterValor: (item) => String(item.quantidade) },
-  { titulo: 'Valor', largura: 55, obterValor: (item) => formatarMoeda(item.valor) },
+  { titulo: 'Data', largura: 55, obterValor: (item) => formatarData(item.data) },
+  { titulo: 'Técnico', largura: 100, obterValor: (item) => item.tecnico.nome },
+  { titulo: 'Paciente', largura: 100, obterValor: (item) => item.paciente.nome },
+  { titulo: 'Especialidade', largura: 70, obterValor: (item) => item.exame.especialidade?.nome ?? '—' },
+  { titulo: 'Exame', largura: 105, obterValor: (item) => `${item.exame.nome} (${item.exame.codigo})` },
+  { titulo: 'Qtd.', largura: 30, align: 'right', obterValor: (item) => String(item.quantidade) },
+  { titulo: 'Valor', largura: 55, align: 'right', obterValor: (item) => formatarMoeda(item.valor) },
 ];
+
+const LARGURA_TABELA = COLUNAS.reduce((soma, coluna) => soma + coluna.largura, 0);
+
+/**
+ * Escreve texto confinado a uma única linha, truncando com reticências quando
+ * não couber na largura da coluna. Evita que nomes/textos longos invadam a
+ * coluna vizinha ou transbordem para a linha seguinte da tabela.
+ */
+function escreverTextoTruncado(
+  doc: PDFKit.PDFDocument,
+  texto: string,
+  x: number,
+  y: number,
+  largura: number,
+  opcoes: PDFKit.Mixins.TextOptions = {},
+): void {
+  doc.text(texto, x, y, {
+    width: Math.max(largura - PADDING_COLUNA, 0),
+    height: doc.currentLineHeight(),
+    ellipsis: true,
+    ...opcoes,
+  });
+}
 
 function formatarData(data: Date): string {
   return data.toISOString().slice(0, 10).split('-').reverse().join('/');
@@ -56,17 +85,23 @@ function formatarDataHora(data: Date): string {
 }
 
 function desenharCabecalhoTabela(doc: PDFKit.PDFDocument, topo: number): void {
+  doc.rect(MARGEM, topo, LARGURA_TABELA, ALTURA_CABECALHO_TABELA).fill(COR_FUNDO_CABECALHO);
+
+  doc.font('Helvetica-Bold').fontSize(9).fillColor('#000000');
+  const yTexto = topo + (ALTURA_CABECALHO_TABELA - doc.currentLineHeight()) / 2;
   let x = MARGEM;
-  doc.font('Helvetica-Bold').fontSize(9);
   for (const coluna of COLUNAS) {
-    doc.text(coluna.titulo, x, topo, { width: coluna.largura, lineBreak: false });
+    escreverTextoTruncado(doc, coluna.titulo, x, yTexto, coluna.largura, { align: coluna.align ?? 'left' });
     x += coluna.largura;
   }
+
   doc
-    .moveTo(MARGEM, topo + 14)
-    .lineTo(x, topo + 14)
-    .strokeColor('#cccccc')
-    .stroke();
+    .moveTo(MARGEM, topo + ALTURA_CABECALHO_TABELA)
+    .lineTo(MARGEM + LARGURA_TABELA, topo + ALTURA_CABECALHO_TABELA)
+    .strokeColor('#999999')
+    .lineWidth(0.75)
+    .stroke()
+    .lineWidth(1);
 }
 
 /**
@@ -93,8 +128,8 @@ function desenharCabecalhoClinica(
   let y = y0;
 
   if (clinica.nomeClinica) {
-    doc.font('Helvetica-Bold').fontSize(13).fillColor('#000000')
-       .text(clinica.nomeClinica, textX, y, { width: textW, lineBreak: false });
+    doc.font('Helvetica-Bold').fontSize(13).fillColor('#000000');
+    escreverTextoTruncado(doc, clinica.nomeClinica, textX, y, textW, { width: textW });
     y += 17;
   }
 
@@ -107,7 +142,7 @@ function desenharCabecalhoClinica(
   if (linhas.length) {
     doc.font('Helvetica').fontSize(8).fillColor('#555555');
     for (const linha of linhas) {
-      doc.text(linha, textX, y, { width: textW, lineBreak: false });
+      escreverTextoTruncado(doc, linha, textX, y, textW, { width: textW });
       y += 11;
     }
   }
@@ -194,25 +229,42 @@ export function gerarRelatorioLancamentosPdf(
 
     let topo = doc.y;
     desenharCabecalhoTabela(doc, topo);
-    topo += 18;
+    topo += ALTURA_CABECALHO_TABELA;
 
     doc.font('Helvetica').fontSize(9).fillColor('#000000');
-    for (const item of itens) {
+    itens.forEach((item, indice) => {
       if (topo + ALTURA_LINHA > doc.page.height - MARGEM) {
         doc.addPage();
         topo = MARGEM;
         desenharCabecalhoTabela(doc, topo);
-        topo += 18;
+        topo += ALTURA_CABECALHO_TABELA;
         doc.font('Helvetica').fontSize(9).fillColor('#000000');
       }
 
+      if (indice % 2 === 1) {
+        doc.rect(MARGEM, topo, LARGURA_TABELA, ALTURA_LINHA).fill(COR_ZEBRA);
+      }
+      doc.fillColor('#000000');
+
+      const yTexto = topo + (ALTURA_LINHA - doc.currentLineHeight()) / 2;
       let x = MARGEM;
       for (const coluna of COLUNAS) {
-        doc.text(coluna.obterValor(item), x, topo, { width: coluna.largura, lineBreak: false });
+        escreverTextoTruncado(doc, coluna.obterValor(item), x, yTexto, coluna.largura, {
+          align: coluna.align ?? 'left',
+        });
         x += coluna.largura;
       }
+
+      doc
+        .moveTo(MARGEM, topo + ALTURA_LINHA)
+        .lineTo(MARGEM + LARGURA_TABELA, topo + ALTURA_LINHA)
+        .strokeColor(COR_LINHA_GRADE)
+        .lineWidth(0.5)
+        .stroke()
+        .lineWidth(1);
+
       topo += ALTURA_LINHA;
-    }
+    });
 
     numerarPaginas(doc, clinica.nomeClinica);
     doc.end();
