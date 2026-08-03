@@ -28,9 +28,11 @@ interface ColunaTabela {
 }
 
 const MARGEM = 40;
-const ALTURA_LINHA = 22;
+const MARGENS_PAGINA = { top: MARGEM, right: MARGEM, bottom: MARGEM, left: MARGEM };
+const ALTURA_LINHA_MINIMA = 20;
 const ALTURA_CABECALHO_TABELA = 22;
 const PADDING_COLUNA = 6;
+const PADDING_VERTICAL_LINHA = 4;
 const LOGO_SIZE = 52;
 const COR_ZEBRA = '#f6f7f9';
 const COR_FUNDO_CABECALHO = '#eef1f4';
@@ -50,8 +52,10 @@ const LARGURA_TABELA = COLUNAS.reduce((soma, coluna) => soma + coluna.largura, 0
 
 /**
  * Escreve texto confinado a uma única linha, truncando com reticências quando
- * não couber na largura da coluna. Evita que nomes/textos longos invadam a
- * coluna vizinha ou transbordem para a linha seguinte da tabela.
+ * não couber na largura disponível. Usado apenas no cabeçalho de identidade da
+ * clínica (nome/endereço), que é um bloco de layout fixo, não uma célula de
+ * tabela — as linhas da tabela usam quebra completa (ver `larguraTextoColuna`
+ * e `calcularAlturaLinha` abaixo).
  */
 function escreverTextoTruncado(
   doc: PDFKit.PDFDocument,
@@ -67,6 +71,26 @@ function escreverTextoTruncado(
     ellipsis: true,
     ...opcoes,
   });
+}
+
+function larguraTextoColuna(largura: number): number {
+  return Math.max(largura - PADDING_COLUNA, 0);
+}
+
+/**
+ * Calcula a altura necessária para exibir o conteúdo completo da linha (sem
+ * truncar), considerando a quebra de texto em cada coluna e usando a maior
+ * altura entre elas. Isso garante que a linha seguinte da tabela só comece
+ * depois que todo o conteúdo desta tiver sido desenhado, evitando sobreposição.
+ */
+function calcularAlturaLinha(doc: PDFKit.PDFDocument, item: LancamentoApresentavel): number {
+  const alturaConteudo = COLUNAS.reduce((maior, coluna) => {
+    const altura = doc.heightOfString(coluna.obterValor(item), {
+      width: larguraTextoColuna(coluna.largura),
+    });
+    return Math.max(maior, altura);
+  }, 0);
+  return Math.max(ALTURA_LINHA_MINIMA, alturaConteudo + PADDING_VERTICAL_LINHA * 2);
 }
 
 function formatarData(data: Date): string {
@@ -171,7 +195,7 @@ export function gerarRelatorioLancamentosPdf(
   clinica: ClinicaInfoPdf,
 ): Promise<Buffer> {
   return new Promise((resolve, reject) => {
-    const doc = new PDFDocument({ margin: MARGEM, size: 'A4', bufferPages: true });
+    const doc = new PDFDocument({ size: 'A4', margins: MARGENS_PAGINA, bufferPages: true });
     const blocos: Buffer[] = [];
 
     doc.on('data', (bloco: Buffer) => blocos.push(bloco));
@@ -233,7 +257,9 @@ export function gerarRelatorioLancamentosPdf(
 
     doc.font('Helvetica').fontSize(9).fillColor('#000000');
     itens.forEach((item, indice) => {
-      if (topo + ALTURA_LINHA > doc.page.height - MARGEM) {
+      const alturaLinha = calcularAlturaLinha(doc, item);
+
+      if (topo + alturaLinha > doc.page.height - MARGEM) {
         doc.addPage();
         topo = MARGEM;
         desenharCabecalhoTabela(doc, topo);
@@ -242,28 +268,28 @@ export function gerarRelatorioLancamentosPdf(
       }
 
       if (indice % 2 === 1) {
-        doc.rect(MARGEM, topo, LARGURA_TABELA, ALTURA_LINHA).fill(COR_ZEBRA);
+        doc.rect(MARGEM, topo, LARGURA_TABELA, alturaLinha).fill(COR_ZEBRA);
       }
       doc.fillColor('#000000');
 
-      const yTexto = topo + (ALTURA_LINHA - doc.currentLineHeight()) / 2;
       let x = MARGEM;
       for (const coluna of COLUNAS) {
-        escreverTextoTruncado(doc, coluna.obterValor(item), x, yTexto, coluna.largura, {
+        doc.text(coluna.obterValor(item), x, topo + PADDING_VERTICAL_LINHA, {
+          width: larguraTextoColuna(coluna.largura),
           align: coluna.align ?? 'left',
         });
         x += coluna.largura;
       }
 
       doc
-        .moveTo(MARGEM, topo + ALTURA_LINHA)
-        .lineTo(MARGEM + LARGURA_TABELA, topo + ALTURA_LINHA)
+        .moveTo(MARGEM, topo + alturaLinha)
+        .lineTo(MARGEM + LARGURA_TABELA, topo + alturaLinha)
         .strokeColor(COR_LINHA_GRADE)
         .lineWidth(0.5)
         .stroke()
         .lineWidth(1);
 
-      topo += ALTURA_LINHA;
+      topo += alturaLinha;
     });
 
     numerarPaginas(doc, clinica.nomeClinica);
