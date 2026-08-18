@@ -10,6 +10,7 @@ import { JwtAccessStrategy } from './strategies/jwt-access.strategy';
 import { JwtRefreshStrategy } from './strategies/jwt-refresh.strategy';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { RolesGuard } from './guards/roles.guard';
+import { TrocaSenhaObrigatoriaGuard } from './guards/troca-senha-obrigatoria.guard';
 
 @Module({
   imports: [PassportModule, JwtModule.register({})],
@@ -21,10 +22,13 @@ import { RolesGuard } from './guards/roles.guard';
     JwtAccessStrategy,
     JwtRefreshStrategy,
     // Guards globais: autenticação obrigatória por padrão (JwtAuthGuard)
-    // seguida de checagem de papéis (RolesGuard) — ordem importa, pois o
-    // RolesGuard depende de req.user já populado pelo guard de autenticação.
+    // seguida de checagem de papéis (RolesGuard) e, por fim, do bloqueio de
+    // contas com troca de senha pendente (TrocaSenhaObrigatoriaGuard) — a
+    // ordem importa, pois os dois últimos dependem de req.user já populado
+    // pelo guard de autenticação.
     { provide: APP_GUARD, useClass: JwtAuthGuard },
     { provide: APP_GUARD, useClass: RolesGuard },
+    { provide: APP_GUARD, useClass: TrocaSenhaObrigatoriaGuard },
   ],
   exports: [AuthService],
 })

@@ -57,7 +57,13 @@ describe('RotaProtegida', () => {
   });
 
   it('redireciona para a página inicial quando o usuário não possui o papel exigido (RBAC)', () => {
-    const usuario: UsuarioAutenticado = { id: 'user-1', nome: 'Ana', email: 'ana@b.com', papel: 'TECNICO' };
+    const usuario: UsuarioAutenticado = {
+      id: 'user-1',
+      nome: 'Ana',
+      email: 'ana@b.com',
+      papel: 'TECNICO',
+      precisaTrocarSenha: false,
+    };
     usuarioMockado.mockReturnValue(contexto({ usuario, possuiPapel: vi.fn().mockReturnValue(false) }));
 
     montar();
@@ -66,11 +72,74 @@ describe('RotaProtegida', () => {
   });
 
   it('renderiza o conteúdo da rota quando o usuário está autenticado e possui o papel exigido', () => {
-    const usuario: UsuarioAutenticado = { id: 'user-1', nome: 'Ana', email: 'ana@b.com', papel: 'ADMIN' };
+    const usuario: UsuarioAutenticado = {
+      id: 'user-1',
+      nome: 'Ana',
+      email: 'ana@b.com',
+      papel: 'ADMIN',
+      precisaTrocarSenha: false,
+    };
     usuarioMockado.mockReturnValue(contexto({ usuario, possuiPapel: vi.fn().mockReturnValue(true) }));
 
     montar();
 
     expect(screen.getByText('Conteúdo restrito')).toBeInTheDocument();
+  });
+
+  it('redireciona para /trocar-senha-obrigatoria quando a senha atual é provisória', () => {
+    const usuario: UsuarioAutenticado = {
+      id: 'user-1',
+      nome: 'Ana',
+      email: 'ana@b.com',
+      papel: 'ADMIN',
+      precisaTrocarSenha: true,
+    };
+    usuarioMockado.mockReturnValue(contexto({ usuario, possuiPapel: vi.fn().mockReturnValue(true) }));
+
+    render(
+      <MantineProvider>
+        <MemoryRouter initialEntries={['/area-restrita']}>
+          <Routes>
+            <Route path="/login" element={<span>Tela de login</span>} />
+            <Route path="/" element={<span>Painel</span>} />
+            <Route path="/trocar-senha-obrigatoria" element={<span>Troca de senha obrigatória</span>} />
+            <Route element={<RotaProtegida papeis={['ADMIN']} />}>
+              <Route path="/area-restrita" element={<span>Conteúdo restrito</span>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </MantineProvider>,
+    );
+
+    expect(screen.getByText('Troca de senha obrigatória')).toBeInTheDocument();
+    expect(screen.queryByText('Conteúdo restrito')).not.toBeInTheDocument();
+  });
+
+  it('redireciona para a página inicial ao acessar /trocar-senha-obrigatoria sem pendência', () => {
+    const usuario: UsuarioAutenticado = {
+      id: 'user-1',
+      nome: 'Ana',
+      email: 'ana@b.com',
+      papel: 'ADMIN',
+      precisaTrocarSenha: false,
+    };
+    usuarioMockado.mockReturnValue(contexto({ usuario, possuiPapel: vi.fn().mockReturnValue(true) }));
+
+    render(
+      <MantineProvider>
+        <MemoryRouter initialEntries={['/trocar-senha-obrigatoria']}>
+          <Routes>
+            <Route path="/login" element={<span>Tela de login</span>} />
+            <Route path="/" element={<span>Painel</span>} />
+            <Route element={<RotaProtegida />}>
+              <Route path="/trocar-senha-obrigatoria" element={<span>Troca de senha obrigatória</span>} />
+            </Route>
+          </Routes>
+        </MemoryRouter>
+      </MantineProvider>,
+    );
+
+    expect(screen.getByText('Painel')).toBeInTheDocument();
+    expect(screen.queryByText('Troca de senha obrigatória')).not.toBeInTheDocument();
   });
 });

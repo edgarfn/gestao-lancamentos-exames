@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react';
 import type { ReactNode } from 'react';
-import { httpClient, registrarCallbackSessaoInvalida } from '@/api/httpClient';
+import { httpClient, registrarCallbackSessaoInvalida, registrarCallbackSenhaTrocaObrigatoria } from '@/api/httpClient';
 import { tokenStore } from './tokenStore';
 import type { Papel, UsuarioAutenticado } from '@/types/domain';
 
@@ -64,6 +64,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       return atualizado;
     });
   }, []);
+
+  useEffect(() => {
+    registrarCallbackSenhaTrocaObrigatoria(() => atualizarDadosDaSessao({ precisaTrocarSenha: true }));
+  }, [atualizarDadosDaSessao]);
 
   const value = useMemo<AuthContextValue>(
     () => ({ usuario, carregando, entrar, sair, possuiPapel, atualizarDadosDaSessao }),

@@ -40,6 +40,12 @@ export class JwtAccessStrategy extends PassportStrategy(Strategy, 'jwt-access') 
       tecnicoId = tecnico?.id ?? null;
     }
 
-    return { id: usuario.id, email: usuario.email, papel: usuario.papel, tecnicoId };
+    return {
+      id: usuario.id,
+      email: usuario.email,
+      papel: usuario.papel,
+      tecnicoId,
+      precisaTrocarSenha: usuario.precisaTrocarSenha,
+    };
   }
 }

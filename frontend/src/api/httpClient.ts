@@ -13,6 +13,20 @@ export function registrarCallbackSessaoInvalida(callback: () => void): void {
   aoDeslogarPorSessaoInvalida = callback;
 }
 
+const CODIGO_SENHA_TROCA_OBRIGATORIA = 'SENHA_TROCA_OBRIGATORIA';
+
+/**
+ * Permite que o AuthProvider seja notificado quando o backend bloqueia uma
+ * requisição por troca de senha pendente (TrocaSenhaObrigatoriaGuard) — cobre
+ * o caso de a sessão local ainda não saber da pendência (ex.: um
+ * administrador redefiniu a senha desta conta enquanto ela estava em uso
+ * em outra aba/dispositivo).
+ */
+let aoReceberSenhaTrocaObrigatoria: (() => void) | null = null;
+export function registrarCallbackSenhaTrocaObrigatoria(callback: () => void): void {
+  aoReceberSenhaTrocaObrigatoria = callback;
+}
+
 httpClient.interceptors.request.use((config) => {
   const sessao = tokenStore.carregar();
   if (sessao?.accessToken) {
@@ -46,6 +60,11 @@ httpClient.interceptors.response.use(
     const config = erro.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined;
     const statusNaoAutorizado = erro.response?.status === 401;
     const ehRotaDeAuth = config?.url?.includes('/auth/');
+
+    const codigoErro = (erro.response?.data as { code?: string } | undefined)?.code;
+    if (erro.response?.status === 403 && codigoErro === CODIGO_SENHA_TROCA_OBRIGATORIA) {
+      aoReceberSenhaTrocaObrigatoria?.();
+    }
 
     if (statusNaoAutorizado && config && !config._retry && !ehRotaDeAuth) {
       config._retry = true;

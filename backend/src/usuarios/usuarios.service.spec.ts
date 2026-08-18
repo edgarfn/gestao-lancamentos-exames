@@ -134,6 +134,18 @@ describe('UsuariosService', () => {
       expect(JSON.stringify(audit.registrar.mock.calls[0][0].dadosNovos)).not.toContain('Senha-Forte123!');
     });
 
+    it('marca precisaTrocarSenha=true — a senha inicial é provisória e definida pelo administrador', async () => {
+      prisma.usuario.findUnique.mockResolvedValue(null);
+      prisma.usuario.create.mockResolvedValue(criarUsuarioPrisma({ id: 'user-2', email: 'novo@clinica.com' }));
+
+      await service.criar(
+        { nome: 'Novo Usuário', email: 'novo@clinica.com', senha: 'Senha-Forte123!', papel: 'GESTOR' as never },
+        ctx,
+      );
+
+      expect(prisma.usuario.create.mock.calls[0][0].data.precisaTrocarSenha).toBe(true);
+    });
+
     it('cria Técnico vinculado automaticamente quando papel é TECNICO', async () => {
       const usuarioCriado = criarUsuarioPrisma({ id: 'user-3', papel: 'TECNICO', nome: 'Técnico Novo' });
       const tecnicoCriado = criarTecnicoPrisma({ id: 'tecnico-novo', nome: 'Técnico Novo', usuarioId: 'user-3' });
@@ -282,6 +294,7 @@ describe('UsuariosService', () => {
 
       const dataAtualizacao = prisma.usuario.update.mock.calls[0][0].data;
       expect(dataAtualizacao.senhaHash).toMatch(/^\$argon2id\$/);
+      expect(dataAtualizacao.precisaTrocarSenha).toBe(true);
       expect(dataAtualizacao.versaoSessao).toEqual({ increment: 1 });
 
       for (const chamada of audit.registrar.mock.calls) {

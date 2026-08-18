@@ -7,6 +7,13 @@ export interface AuthenticatedUser {
   papel: Papel;
   /** ID do registro Tecnico vinculado — populado apenas para papel=TECNICO. */
   tecnicoId?: string | null;
+  /**
+   * true quando a senha atual é provisória (definida por um admin) e ainda
+   * precisa ser trocada. Opcional para não obrigar todo fixture de teste em
+   * outros módulos a informá-lo — em runtime, JwtAccessStrategy sempre o
+   * popula a partir do banco; ausência é tratada como "sem pendência".
+   */
+  precisaTrocarSenha?: boolean;
 }
 
 export interface JwtAccessPayload {

@@ -127,6 +127,7 @@ describe('AuthService', () => {
         papel: 'GESTOR',
         nome: 'Gestora Um',
         versaoSessao: 2,
+        precisaTrocarSenha: false,
       });
       prisma.usuario.update.mockResolvedValue({});
 
@@ -139,6 +140,8 @@ describe('AuthService', () => {
         nome: 'Gestora Um',
         email: 'gestor@clinica.com',
         papel: 'GESTOR',
+        tecnicoId: null,
+        precisaTrocarSenha: false,
       });
       expect(prisma.usuario.update).toHaveBeenCalledWith({
         where: { id: 'user-3' },
@@ -150,6 +153,25 @@ describe('AuthService', () => {
 
       const payloadRefresh = jwt.signAsync.mock.calls[1][0];
       expect(payloadRefresh).toMatchObject({ sub: 'user-3', type: 'refresh', sessionVersion: 2 });
+    });
+
+    it('informa precisaTrocarSenha=true no login quando a senha atual é provisória', async () => {
+      const senhaHash = await argon2.hash('senha-provisoria', { type: argon2.argon2id });
+      prisma.usuario.findUnique.mockResolvedValue({
+        id: 'user-3b',
+        email: 'novo@clinica.com',
+        senhaHash,
+        ativo: true,
+        papel: 'GESTOR',
+        nome: 'Novo Gestor',
+        versaoSessao: 1,
+        precisaTrocarSenha: true,
+      });
+      prisma.usuario.update.mockResolvedValue({});
+
+      const resultado = await service.login('novo@clinica.com', 'senha-provisoria', TOKEN_TURNSTILE, ctx);
+
+      expect(resultado.usuario.precisaTrocarSenha).toBe(true);
     });
   });
 
@@ -200,7 +222,7 @@ describe('AuthService', () => {
       expect(prisma.usuario.update).not.toHaveBeenCalled();
     });
 
-    it('atualiza o hash, incrementa a versão de sessão e audita a troca', async () => {
+    it('atualiza o hash, limpa precisaTrocarSenha, incrementa a versão de sessão e audita a troca', async () => {
       const senhaHash = await argon2.hash('senha-atual', { type: argon2.argon2id });
       prisma.usuario.findUniqueOrThrow.mockResolvedValue({ id: 'user-7', senhaHash });
       prisma.usuario.update.mockResolvedValue({});
@@ -209,11 +231,53 @@ describe('AuthService', () => {
 
       expect(prisma.usuario.update).toHaveBeenCalledWith({
         where: { id: 'user-7' },
-        data: { senhaHash: expect.any(String), versaoSessao: { increment: 1 } },
+        data: { senhaHash: expect.any(String), precisaTrocarSenha: false, versaoSessao: { increment: 1 } },
       });
       expect(audit.registrar).toHaveBeenCalledWith(
         expect.objectContaining({ usuarioId: 'user-7', acao: 'ATUALIZACAO' }),
       );
+    });
+  });
+
+  describe('redefinirSenha (token de recuperação)', () => {
+    let prismaComToken: typeof prisma & {
+      tokenRecuperacaoSenha: { findUnique: jest.Mock; update: jest.Mock };
+      $transaction: jest.Mock;
+    };
+    let serviceComToken: AuthService;
+
+    beforeEach(() => {
+      prismaComToken = {
+        ...prisma,
+        tokenRecuperacaoSenha: { findUnique: jest.fn(), update: jest.fn() },
+        $transaction: jest.fn(async (ops: unknown[]) => Promise.all(ops as Promise<unknown>[])),
+      };
+      serviceComToken = new AuthService(
+        prismaComToken as unknown as PrismaService,
+        jwt as unknown as JwtService,
+        config as unknown as ConfigService,
+        audit as unknown as AuditService,
+        turnstile as unknown as TurnstileService,
+        email as unknown as EmailService,
+      );
+    });
+
+    it('limpa precisaTrocarSenha ao redefinir a senha via token de recuperação', async () => {
+      prismaComToken.tokenRecuperacaoSenha.findUnique.mockResolvedValue({
+        id: 'token-1',
+        usuarioId: 'user-8',
+        usadoEm: null,
+        expiraEm: new Date(Date.now() + 60_000),
+      });
+      prismaComToken.usuario.update.mockResolvedValue({});
+      prismaComToken.tokenRecuperacaoSenha.update.mockResolvedValue({});
+
+      await serviceComToken.redefinirSenha('token-em-texto-puro', 'nova-senha-Forte123!');
+
+      expect(prismaComToken.usuario.update).toHaveBeenCalledWith({
+        where: { id: 'user-8' },
+        data: { senhaHash: expect.any(String), precisaTrocarSenha: false, versaoSessao: { increment: 1 } },
+      });
     });
   });
 });

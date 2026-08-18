@@ -2,7 +2,13 @@ import { afterEach, describe, expect, it } from 'vitest';
 import { tokenStore } from './tokenStore';
 import type { UsuarioAutenticado } from '@/types/domain';
 
-const usuario: UsuarioAutenticado = { id: 'user-1', nome: 'Ana', email: 'ana@b.com', papel: 'TECNICO' };
+const usuario: UsuarioAutenticado = {
+  id: 'user-1',
+  nome: 'Ana',
+  email: 'ana@b.com',
+  papel: 'TECNICO',
+  precisaTrocarSenha: false,
+};
 
 describe('tokenStore', () => {
   afterEach(() => {

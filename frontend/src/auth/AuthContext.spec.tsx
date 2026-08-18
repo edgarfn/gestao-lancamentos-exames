@@ -9,9 +9,16 @@ import type { UsuarioAutenticado } from '@/types/domain';
 vi.mock('@/api/httpClient', () => ({
   httpClient: { post: vi.fn() },
   registrarCallbackSessaoInvalida: vi.fn(),
+  registrarCallbackSenhaTrocaObrigatoria: vi.fn(),
 }));
 
-const usuario: UsuarioAutenticado = { id: 'user-1', nome: 'Ana', email: 'ana@b.com', papel: 'GESTOR' };
+const usuario: UsuarioAutenticado = {
+  id: 'user-1',
+  nome: 'Ana',
+  email: 'ana@b.com',
+  papel: 'GESTOR',
+  precisaTrocarSenha: false,
+};
 
 function PainelDeTeste() {
   const { usuario: atual, carregando, entrar, sair, possuiPapel } = useAuth();

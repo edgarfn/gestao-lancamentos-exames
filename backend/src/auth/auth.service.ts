@@ -48,7 +48,18 @@ export class AuthService {
     senha: string,
     turnstileToken: string,
     ctx: Omit<AuditContext, 'usuarioId'>,
-  ): Promise<TokenPair & { usuario: { id: string; nome: string; email: string; papel: string; tecnicoId: string | null } }> {
+  ): Promise<
+    TokenPair & {
+      usuario: {
+        id: string;
+        nome: string;
+        email: string;
+        papel: string;
+        tecnicoId: string | null;
+        precisaTrocarSenha: boolean;
+      };
+    }
+  > {
     const turnstileValido = await this.turnstile.validar(turnstileToken, ctx.enderecoIp);
     if (!turnstileValido) {
       throw new UnauthorizedException(VERIFICACAO_SEGURANCA_FALHOU);
@@ -102,7 +113,14 @@ export class AuthService {
     const tokens = await this.emitirTokens(usuario.id, usuario.email, usuario.papel, usuario.versaoSessao);
     return {
       ...tokens,
-      usuario: { id: usuario.id, nome: usuario.nome, email: usuario.email, papel: usuario.papel, tecnicoId },
+      usuario: {
+        id: usuario.id,
+        nome: usuario.nome,
+        email: usuario.email,
+        papel: usuario.papel,
+        tecnicoId,
+        precisaTrocarSenha: usuario.precisaTrocarSenha,
+      },
     };
   }
 
@@ -132,7 +150,7 @@ export class AuthService {
     const novoHash = await argon2.hash(novaSenha, { type: argon2.argon2id });
     await this.prisma.usuario.update({
       where: { id: usuarioId },
-      data: { senhaHash: novoHash, versaoSessao: { increment: 1 } },
+      data: { senhaHash: novoHash, precisaTrocarSenha: false, versaoSessao: { increment: 1 } },
     });
 
     await this.audit.registrar({
@@ -245,7 +263,7 @@ export class AuthService {
       }),
       this.prisma.usuario.update({
         where: { id: registro.usuarioId },
-        data: { senhaHash: novoHash, versaoSessao: { increment: 1 } },
+        data: { senhaHash: novoHash, precisaTrocarSenha: false, versaoSessao: { increment: 1 } },
       }),
     ]);
 

@@ -53,6 +53,10 @@ model Usuario {
   senhaHash     String    @map("senha_hash")
   papel         Papel     @default(TECNICO)
   ativo         Boolean   @default(true)
+  /// true quando a senha atual foi definida por um administrador (criação ou
+  /// redefinição) e ainda não foi trocada pelo próprio usuário — bloqueia o
+  /// acesso ao restante da API até a troca (ver TrocaSenhaObrigatoriaGuard).
+  precisaTrocarSenha Boolean @default(false) @map("precisa_trocar_senha")
   /// Incrementada a cada logout-global/troca de senha; invalida refresh tokens antigos.
   versaoSessao  Int       @default(1) @map("versao_sessao")
   ultimoLoginEm DateTime? @map("ultimo_login_em")

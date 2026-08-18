@@ -55,7 +55,9 @@ export class UsuariosService {
 
     const { usuario, tecnico } = await this.prisma.$transaction(async (tx) => {
       const novoUsuario = await tx.usuario.create({
-        data: { nome: dto.nome, email: dto.email, papel: dto.papel, senhaHash },
+        // precisaTrocarSenha=true: a senha inicial é definida pelo administrador
+        // (senha provisória) — o próprio usuário deve trocá-la no primeiro acesso.
+        data: { nome: dto.nome, email: dto.email, papel: dto.papel, senhaHash, precisaTrocarSenha: true },
       });
       // Ao criar um usuário com papel TECNICO, já vincula um registro de Técnico
       // para que o operador não precise criar os dois cadastros separadamente.
@@ -206,7 +208,7 @@ export class UsuariosService {
 
     await this.prisma.usuario.update({
       where: { id },
-      data: { senhaHash, versaoSessao: { increment: 1 } },
+      data: { senhaHash, precisaTrocarSenha: true, versaoSessao: { increment: 1 } },
     });
 
     await this.audit.registrar({

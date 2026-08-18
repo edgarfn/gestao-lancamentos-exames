@@ -40,6 +40,7 @@ async function main(): Promise<void> {
         email: adminEmail,
         senhaHash,
         papel: 'ADMIN',
+        precisaTrocarSenha: true,
       },
     });
 

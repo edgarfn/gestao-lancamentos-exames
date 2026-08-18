@@ -11,6 +11,7 @@ import { SolicitarRecuperacaoDto } from './dto/solicitar-recuperacao.dto';
 import { RedefinirSenhaDto } from './dto/redefinir-senha.dto';
 import { SetupInicialDto } from './dto/setup-inicial.dto';
 import { Public } from './decorators/public.decorator';
+import { IgnorarTrocaSenhaObrigatoria } from './decorators/ignorar-troca-senha-obrigatoria.decorator';
 import { CurrentUser } from './decorators/current-user.decorator';
 import { AuthenticatedUser } from './types/authenticated-user';
 import { RefreshTokenContext } from './strategies/jwt-refresh.strategy';
@@ -45,12 +46,18 @@ export class AuthController {
     return this.authService.renovarTokens(userId);
   }
 
+  // Isento do bloqueio de troca de senha obrigatória: precisa continuar acessível
+  // para que o usuário sempre tenha como encerrar a sessão, mesmo com a troca pendente.
+  @IgnorarTrocaSenhaObrigatoria()
   @HttpCode(HttpStatus.NO_CONTENT)
   @Post('logout-all')
   async logoutAll(@CurrentUser() user: AuthenticatedUser): Promise<void> {
     await this.authService.revogarSessoes(user.id);
   }
 
+  // Isento do bloqueio de troca de senha obrigatória: é o próprio mecanismo pelo
+  // qual a pendência é resolvida.
+  @IgnorarTrocaSenhaObrigatoria()
   @HttpCode(HttpStatus.NO_CONTENT)
   @Post('alterar-senha')
   async alterarSenha(@CurrentUser() user: AuthenticatedUser, @Body() dto: ChangePasswordDto): Promise<void> {

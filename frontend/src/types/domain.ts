@@ -33,6 +33,8 @@ export interface UsuarioAutenticado {
   email: string;
   papel: Papel;
   tecnicoId?: string | null;
+  /** true quando a senha atual é provisória (definida por um administrador) e precisa ser trocada. */
+  precisaTrocarSenha: boolean;
 }
 
 export interface Usuario {
