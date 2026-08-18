@@ -1,6 +1,7 @@
 import { forwardRef, useEffect } from 'react';
 import { MantineProvider } from '@mantine/core';
 import { Notifications, notifications } from '@mantine/notifications';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter } from 'react-router-dom';
@@ -10,6 +11,27 @@ import { LoginPage } from './LoginPage';
 import { useAuth } from '@/auth/AuthContext';
 
 vi.mock('@/auth/AuthContext', () => ({ useAuth: vi.fn() }));
+
+// LoginPage (e os modais que ela renderiza — "esqueci a senha" e "configuração
+// inicial") usam useQuery/useMutation do TanStack Query, que exigem um
+// QueryClientProvider no contexto. Mockar o httpClient evita chamadas de rede
+// reais em teste (o widget de branding/setup não é o que está sob teste aqui).
+vi.mock('@/api/httpClient', () => ({
+  httpClient: {
+    get: vi.fn((url: string) =>
+      Promise.resolve({
+        data: url.includes('precisa-configuracao')
+          ? { precisaConfiguracao: false }
+          : { nomeClinica: null, logoBase64: null },
+      }),
+    ),
+    post: vi.fn().mockResolvedValue({ data: {} }),
+    patch: vi.fn().mockResolvedValue({ data: {} }),
+    delete: vi.fn().mockResolvedValue({ data: {} }),
+  },
+  registrarCallbackSessaoInvalida: vi.fn(),
+  registrarCallbackSenhaTrocaObrigatoria: vi.fn(),
+}));
 
 const TOKEN_TURNSTILE_FALSO = 'token-turnstile-falso';
 
@@ -30,13 +52,18 @@ vi.mock('@marsidev/react-turnstile', () => ({
 const usuarioMockado = vi.mocked(useAuth);
 
 function montar() {
+  const queryClient = new QueryClient({
+    defaultOptions: { queries: { retry: false }, mutations: { retry: false } },
+  });
   return render(
-    <MantineProvider>
-      <Notifications />
-      <MemoryRouter initialEntries={['/login']}>
-        <LoginPage />
-      </MemoryRouter>
-    </MantineProvider>,
+    <QueryClientProvider client={queryClient}>
+      <MantineProvider>
+        <Notifications />
+        <MemoryRouter initialEntries={['/login']}>
+          <LoginPage />
+        </MemoryRouter>
+      </MantineProvider>
+    </QueryClientProvider>,
   );
 }
 
